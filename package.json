@@ -1,0 +1,26 @@
+{
+  "name": "hivemind-sesi",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Hivemind Protocol powered by SESI (Stigmergic Epistemic Swarm Intelligence) — a novel multi-agent orchestration algorithm",
+  "main": "sesi-swarm-server.js",
+  "scripts": {
+    "start": "node sesi-swarm-server.js",
+    "dev": "node --watch sesi-swarm-server.js",
+    "benchmark": "node benchmark.js",
+    "legacy": "node legacy/hivemind-server-v1.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Biswadeepak",
+  "license": "MIT"
+}
