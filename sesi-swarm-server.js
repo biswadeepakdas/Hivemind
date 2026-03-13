@@ -1383,9 +1383,9 @@ function md(s){
     .replace(/^### (.+)$/gm,'<div style="font-size:11px;font-weight:700;color:#c4b5fd;margin:8px 0 3px">$1</div>')
     .replace(/^## (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#e0e0e0;margin:10px 0 4px;border-bottom:1px solid #ffffff10;padding-bottom:3px">$1</div>')
     .replace(/^# (.+)$/gm,'<div style="font-size:13px;font-weight:800;color:#fff;margin:10px 0 5px">$1</div>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#f0f0f0">$1</strong>')
+    .replace(/\\*\\*(.+?)\\*\\*/g,'<strong style="color:#f0f0f0">$1</strong>')
     .replace(/^- (.+)$/gm,'<div style="padding-left:10px;margin:1px 0"><span style="color:#8B5CF6;margin-right:4px">&#8226;</span>$1</div>')
-    .replace(/\n/g,'<br>');
+    .replace(/\\n/g,'<br>');
 }
 
 let renderPending=false;
