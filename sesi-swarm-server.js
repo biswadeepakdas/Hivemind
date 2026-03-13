@@ -1136,7 +1136,7 @@ wss.on("connection", (ws, req) => {
       } else if (msg.type === "decompose" && msg.task) {
         ws.send(JSON.stringify({ type: "decomposition", data: decomposeTask(msg.task) }));
       }
-    } catch {}
+    } catch { }
   });
 
   ws.on("close", () => sesi.removeSpectator(sessionId, ws));
@@ -1156,435 +1156,372 @@ app.get("/", (req, res) => {
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SESI — Stigmergic Epistemic Swarm Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a1a;color:#e0e0e0;font-family:'Inter',system-ui,-apple-system,sans-serif;overflow:hidden}
+body{background:#080818;color:#e0e0e0;font-family:'Inter',system-ui,sans-serif;overflow:hidden}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#2a2a4a;border-radius:3px}
-@keyframes sweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-@keyframes typing{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
 
-/* Kawaii character animations */
-@keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
-@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
-@keyframes typing{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
-@keyframes typingHands{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-1px) rotate(2deg)}}
-@keyframes screenGlow{0%,100%{opacity:0.6}50%{opacity:1}}
-@keyframes blockDrop{0%{opacity:0;transform:translateY(-20px) scale(0.5)}60%{transform:translateY(2px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes blockShine{0%{left:-100%}100%{left:200%}}
-@keyframes celebrateJump{0%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}60%{transform:translateY(-4px)}}
-@keyframes starPop{0%{opacity:0;transform:scale(0) rotate(0)}50%{opacity:1;transform:scale(1.2) rotate(180deg)}100%{opacity:0;transform:scale(0) rotate(360deg)}}
-@keyframes floatUp{0%{opacity:0;transform:translateY(8px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-4px)}}
-@keyframes blushPulse{0%,100%{opacity:0.4}50%{opacity:0.7}}
-@keyframes laptopType{0%,100%{transform:scaleY(1)}50%{transform:scaleY(0.97)}}
+@keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes workBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(0.05)}}
+@keyframes typingL{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) translateY(-2px)}}
+@keyframes typingR{0%,100%{transform:rotate(4deg)}50%{transform:rotate(-4deg) translateY(-2px)}}
+@keyframes screenGlow{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes celebrate{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-18px) rotate(-6deg)}75%{transform:translateY(-12px) rotate(6deg)}}
+@keyframes sparkle{0%{opacity:0;transform:scale(0) rotate(0)}50%{opacity:1;transform:scale(1.2) rotate(180deg)}100%{opacity:0;transform:scale(0) rotate(360deg)}}
+@keyframes floatBubble{0%{opacity:0;transform:translateX(-50%) translateY(6px)}12%{opacity:1;transform:translateX(-50%) translateY(0)}88%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-4px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes sweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes twinkle{0%,100%{opacity:.08}50%{opacity:.5}}
+@keyframes breathe{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.02)}}
+@keyframes blushPulse{0%,100%{opacity:.25}50%{opacity:.55}}
+@keyframes codeFloat{0%{opacity:0;transform:translateY(10px)}15%{opacity:.5}85%{opacity:.5}100%{opacity:0;transform:translateY(-20px)}}
 
 .app{display:flex;height:100vh;flex-direction:column}
-.header{padding:14px 20px;border-bottom:1px solid #1a1a2e;display:flex;align-items:center;gap:12px}
-.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#8B5CF6,#D97706,#10B981);background-size:200% 200%;animation:gradientShift 4s ease infinite;display:flex;align-items:center;justify-content:center;font-size:18px}
-.header h1{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.5px}
-.header .sub{font-size:10px;color:#666;margin-top:1px}
-.phase-badge{margin-left:auto;display:flex;align-items:center;gap:6px}
-.phase-dot{width:8px;height:8px;border-radius:99px;animation:pulse 1s infinite}
-.phase-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.header{padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:14px;background:rgba(10,10,26,.85);backdrop-filter:blur(20px);z-index:10}
+.logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#8B5CF6,#D97706,#10B981);background-size:200% 200%;animation:gradientShift 4s ease infinite;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 15px rgba(139,92,246,.25)}
+.header h1{font-size:18px;font-weight:900;color:#fff;letter-spacing:-.5px}
+.header .sub{font-size:10px;color:rgba(255,255,255,.3);margin-top:2px;font-weight:500}
+.phase-badge{display:flex;align-items:center;gap:6px}
+.phase-dot{width:8px;height:8px;border-radius:99px;animation:pulse 1.2s infinite}
+.phase-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.conn-info{font-size:10px;color:rgba(255,255,255,.25);margin-left:auto}
 
 .main{display:flex;flex:1;overflow:hidden}
-.sidebar{width:250px;border-right:1px solid #1a1a2e;overflow-y:auto;padding:14px 10px;flex-shrink:0}
-.sidebar-title{font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;padding-left:4px}
+.sidebar{width:260px;border-right:1px solid rgba(255,255,255,.04);overflow-y:auto;padding:16px 12px;flex-shrink:0;background:rgba(8,8,24,.4)}
+.sidebar-title{font-size:9px;font-weight:700;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;padding-left:4px}
 
-.agent-card{background:#13132a;border:2px solid #222244;border-radius:12px;padding:10px 12px;margin-bottom:6px;transition:all .4s ease;position:relative;overflow:hidden}
-.agent-card.active{transform:scale(1.02)}
-.agent-card .sweep-bar{position:absolute;top:0;left:0;height:3px;width:100%;animation:sweep 1.5s infinite}
-.agent-card .head{display:flex;align-items:center;gap:8px;margin-bottom:3px}
-.agent-card .emoji{font-size:20px}
+.agent-card{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:11px 13px;margin-bottom:6px;transition:all .4s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+.agent-card.active{box-shadow:0 0 20px rgba(139,92,246,.12)}
+.agent-card .sweep-bar{position:absolute;top:0;left:0;height:2px;width:100%;animation:sweep 1.8s infinite}
+.agent-card .ac-head{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.agent-card .emoji{font-size:22px}
 .agent-card .name{font-weight:700;color:#fff;font-size:12px}
-.agent-card .role{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px}
-.agent-card .trust-bar{height:3px;background:#1a1a2e;border-radius:2px;margin-top:4px;overflow:hidden}
-.agent-card .trust-fill{height:100%;border-radius:2px;transition:width .5s ease}
-.agent-card .trust-label{font-size:8px;color:#555;margin-top:2px}
-.agent-card .action{margin-top:5px;padding:5px 7px;background:#0b0b1a;border-radius:5px;font-size:9px;font-family:'JetBrains Mono',monospace;line-height:1.4;border-left:3px solid}
-.agent-card .badge{margin-left:auto;border-radius:99px;font-size:8px;font-weight:700;padding:2px 5px;color:#fff}
+.agent-card .role{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px}
+.agent-card .trust-bar{height:3px;background:rgba(255,255,255,.05);border-radius:2px;margin-top:5px;overflow:hidden}
+.agent-card .trust-fill{height:100%;border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.agent-card .trust-label{font-size:8px;color:rgba(255,255,255,.2);margin-top:3px}
+.agent-card .action{margin-top:6px;padding:6px 8px;background:rgba(0,0,0,.25);border-radius:8px;font-size:9px;font-family:'JetBrains Mono',monospace;line-height:1.5;border-left:3px solid;max-height:70px;overflow:hidden;word-break:break-word}
+.agent-card .badge{margin-left:auto;border-radius:99px;font-size:8px;font-weight:700;padding:3px 8px;color:#fff}
 
 .content{flex:1;display:flex;flex-direction:column;min-width:0}
-.input-area{padding:12px 18px;border-bottom:1px solid #1a1a2e}
-.input-row{display:flex;gap:8px}
-.input-row input{flex:1;padding:10px 13px;background:#12122a;border:2px solid #2a2a4a;border-radius:10px;color:#fff;font-size:13px;outline:none;font-family:inherit}
-.input-row input::placeholder{color:#555}
-.input-row button{padding:10px 18px;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap}
+.input-area{padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.04);background:rgba(8,8,24,.5)}
+.input-row{display:flex;gap:10px}
+.input-row input{flex:1;padding:12px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;color:#fff;font-size:14px;outline:none;font-family:inherit;transition:border-color .3s,box-shadow .3s}
+.input-row input:focus{border-color:rgba(139,92,246,.5);box-shadow:0 0 20px rgba(139,92,246,.08)}
+.input-row input::placeholder{color:rgba(255,255,255,.2)}
+.input-row button{padding:12px 22px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s}
+.input-row button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(139,92,246,.25)}
 .btn-deploy{background:linear-gradient(135deg,#8B5CF6,#D97706);color:#fff}
-.btn-deploy:disabled{background:#2a2a4a;color:#555;cursor:default}
-.presets{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
-.presets button{padding:3px 8px;background:#13132a;border:1px solid #222244;border-radius:5px;color:#777;font-size:9px;cursor:pointer;font-family:inherit}
+.btn-deploy:disabled{background:rgba(255,255,255,.06);color:rgba(255,255,255,.2);cursor:default}
+.presets{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.presets button{padding:4px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;color:rgba(255,255,255,.35);font-size:9px;cursor:pointer;font-family:inherit;transition:all .2s}
+.presets button:hover{background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.25);color:rgba(255,255,255,.6)}
 
-.stream-indicator{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle}
-.stream-indicator span{width:4px;height:4px;border-radius:50%;animation:typing .8s infinite}
-.stream-indicator span:nth-child(2){animation-delay:.15s}
-.stream-indicator span:nth-child(3){animation-delay:.3s}
+.si{display:inline-flex;gap:3px;margin-left:5px;vertical-align:middle}
+.si span{width:4px;height:4px;border-radius:50%;animation:pulse .8s infinite}
+.si span:nth-child(2){animation-delay:.15s}
+.si span:nth-child(3){animation-delay:.3s}
 
-/* Canvas area */
-.canvas-area{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 100%,#12122e 0%,#0a0a1a 70%)}
-.canvas-floor{position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(180deg,#13132a00,#13132a);border-top:1px solid #1e1e3a}
-.canvas-stars{position:absolute;inset:0;overflow:hidden;pointer-events:none}
-.canvas-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0.2;animation:pulse 3s infinite}
+.canvas-area{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 130%,#12122e 0%,#080818 65%)}
+.canvas-floor{position:absolute;bottom:0;left:0;right:0;height:90px;background:linear-gradient(180deg,transparent,rgba(15,15,40,.9));pointer-events:none}
+.canvas-stars{position:absolute;inset:0;pointer-events:none}
+.canvas-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:twinkle 4s ease-in-out infinite}
 
-/* Kawaii character wrapper */
-.kw-char{position:absolute;bottom:55px;display:flex;flex-direction:column;align-items:center;transition:left 1s ease,opacity 0.4s ease}
-.kw-char.idle .kw-body{animation:idleBob 2.5s ease-in-out infinite}
-.kw-char.busy .kw-body{animation:idleBob 1.2s ease-in-out infinite}
-.kw-char.done .kw-body{animation:celebrateJump 0.6s ease infinite}
+.chars-wrap{position:absolute;bottom:80px;left:0;right:0;display:flex;justify-content:center;gap:140px;pointer-events:none}
+.char{display:flex;flex-direction:column;align-items:center;position:relative}
+.char.idle .cw{animation:idleBob 3s ease-in-out infinite}
+.char.working .cw{animation:workBob 1.5s ease-in-out infinite}
+.char.done .cw{animation:celebrate .8s ease-in-out infinite}
 
-/* Bubble */
-.kw-bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:6px;background:#181835ee;border:1px solid;border-radius:10px;padding:4px 10px;font-size:8px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;animation:floatUp 4s ease-in-out infinite;backdrop-filter:blur(6px)}
-.kw-bubble::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #181835}
+.char-bubble{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);background:rgba(15,15,40,.88);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:6px 14px;font-size:9px;font-weight:600;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .4s;z-index:5;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.char-bubble.on{opacity:1;animation:floatBubble 5s ease-in-out infinite}
+.char-bubble::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid rgba(15,15,40,.88)}
 
-/* Name label */
-.kw-name{font-size:9px;font-weight:700;letter-spacing:0.5px;margin-bottom:3px;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.6)}
+.cn{font-size:11px;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.cw{position:relative;width:90px;height:130px}
 
-/* Body container */
-.kw-body{position:relative;width:56px;height:62px}
+.c-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:56px;height:52px;border-radius:50%;z-index:3;box-shadow:inset 0 -3px 6px rgba(0,0,0,.08)}
+.c-eyes{position:absolute;top:19px;left:50%;transform:translateX(-50%);display:flex;gap:15px}
+.c-eye{width:7px;height:9px;background:#1a1a2a;border-radius:50%;position:relative;animation:blink 4s infinite}
+.c-eye::after{content:'';position:absolute;top:1px;right:1px;width:3px;height:3px;background:#fff;border-radius:50%}
+.c-mouth{position:absolute;top:34px;left:50%;transform:translateX(-50%);width:8px;height:4px;border-radius:0 0 8px 8px;background:rgba(0,0,0,.15)}
+.working .c-mouth{width:6px;height:6px;border-radius:50%}
+.c-blush{position:absolute;top:29px;width:9px;height:5px;border-radius:50%;opacity:.3;animation:blushPulse 2.5s infinite}
+.c-blush.bl{left:6px}.c-blush.br{right:6px}
 
-/* Big round head (kawaii = big head!) */
-.kw-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:30px;border-radius:50%;border:2px solid;z-index:2}
-.kw-eyes{position:absolute;top:11px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
-.kw-eye{width:4px;height:5px;background:#fff;border-radius:50%;animation:blink 3.5s infinite;position:relative}
-.kw-eye::after{content:'';position:absolute;top:0;right:0;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0.8}
-.kw-mouth{position:absolute;top:19px;left:50%;transform:translateX(-50%);width:5px;height:3px;border-radius:0 0 5px 5px;background:#ffffff40}
-.kw-blush-l,.kw-blush-r{position:absolute;top:16px;width:5px;height:3px;border-radius:50%;opacity:0.5;animation:blushPulse 2s infinite}
-.kw-blush-l{left:4px}
-.kw-blush-r{right:4px}
+.h-boy{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:4;width:54px;height:22px}
+.h-spike{position:absolute;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent}
+.h-spike:nth-child(1){left:3px;top:2px}.h-spike:nth-child(2){left:15px;top:-5px}.h-spike:nth-child(3){left:27px;top:-2px}.h-spike:nth-child(4){right:3px;top:3px}
 
-/* Hair - boy style */
-.kw-hair-boy{position:absolute;top:-5px;left:50%;transform:translateX(-50%);z-index:3;width:30px;height:12px}
-.kw-spike{position:absolute;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent}
-.kw-spike:nth-child(1){left:2px;top:0}
-.kw-spike:nth-child(2){left:9px;top:-3px}
-.kw-spike:nth-child(3){right:2px;top:1px}
+.h-girl{position:absolute;top:-7px;left:50%;transform:translateX(-50%);z-index:4;width:60px;height:26px;border-radius:30px 30px 0 0}
+.h-side{position:absolute;bottom:-20px;width:8px;height:26px;border-radius:0 0 6px 6px}
+.h-side.hl{left:4px}.h-side.hr{right:4px}
+.h-bow{position:absolute;top:-4px;right:5px;z-index:5}
+.h-bow::before,.h-bow::after{content:'';position:absolute;width:8px;height:7px;border-radius:50%;top:0}
+.h-bow::before{left:-4px}.h-bow::after{right:-4px}
+.h-bow-dot{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;z-index:1}
 
-/* Hair - girl style */
-.kw-hair-girl{position:absolute;top:-5px;left:50%;transform:translateX(-50%);z-index:3;width:36px;height:16px;border-radius:18px 18px 0 0}
-.kw-pigtail-l,.kw-pigtail-r{position:absolute;bottom:-10px;width:5px;height:14px;border-radius:0 0 4px 4px}
-.kw-pigtail-l{left:2px}
-.kw-pigtail-r{right:2px}
-.kw-bow{position:absolute;top:-2px;right:0;z-index:4}
-.kw-bow::before,.kw-bow::after{content:'';position:absolute;width:5px;height:5px;border-radius:50%;top:0}
-.kw-bow::before{left:-3px}
-.kw-bow::after{right:-3px}
+.c-torso{position:absolute;top:48px;left:50%;transform:translateX(-50%);width:30px;height:24px;border-radius:8px 8px 4px 4px;z-index:2;animation:breathe 3s ease-in-out infinite}
+.c-arm{position:absolute;top:52px;width:9px;height:20px;border-radius:5px;z-index:2;transform-origin:top center}
+.c-arm.al{left:17px}.c-arm.ar{right:17px}
+.working .c-arm.al{animation:typingL .35s ease-in-out infinite}
+.working .c-arm.ar{animation:typingR .35s ease-in-out infinite .15s}
+.c-leg{position:absolute;top:70px;width:9px;height:18px;border-radius:5px;z-index:1}
+.c-leg.ll{left:28px}.c-leg.lr{right:28px}
+.c-foot{position:absolute;top:86px;width:11px;height:5px;border-radius:3px}
+.c-foot.fl{left:26px}.c-foot.fr{right:26px}
 
-/* Small body */
-.kw-torso{position:absolute;top:28px;left:50%;transform:translateX(-50%);width:20px;height:14px;border-radius:6px 6px 3px 3px;border:2px solid;z-index:1}
+.c-desk{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:76px;height:8px;border-radius:3px;z-index:0;box-shadow:0 4px 15px rgba(0,0,0,.3)}
+.c-laptop{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1}
+.lp-screen{width:36px;height:26px;border-radius:3px 3px 0 0;margin:0 auto;position:relative;overflow:hidden;border:1px solid}
+.lp-base{width:40px;height:4px;border-radius:1px;margin:0 auto}
+.sc-lines{position:absolute;inset:3px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.sc-line{height:2px;border-radius:1px;opacity:.5}
+.working .sc-line{animation:screenGlow 2s ease-in-out infinite}
+.working .sc-line:nth-child(2){animation-delay:.4s}
+.working .sc-line:nth-child(3){animation-delay:.8s}
 
-/* Tiny arms - one types! */
-.kw-arm-l,.kw-arm-r{position:absolute;top:30px;width:5px;height:10px;border-radius:3px;z-index:1}
-.kw-arm-l{left:10px}
-.kw-arm-r{right:10px}
-.busy .kw-arm-l,.busy .kw-arm-r{animation:typingHands 0.3s ease-in-out infinite}
-.busy .kw-arm-r{animation-delay:0.15s}
+.c-sparkle{position:absolute;animation:sparkle 1.2s ease-out infinite;pointer-events:none}
+.c-sparkle::before,.c-sparkle::after{content:'';position:absolute;background:currentColor}
+.c-sparkle::before{width:8px;height:2px;top:3px;left:0;border-radius:1px}
+.c-sparkle::after{width:2px;height:8px;top:0;left:3px;border-radius:1px}
+.c-shadow{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:50px;height:8px;border-radius:50%;opacity:.12}
 
-/* Tiny legs */
-.kw-leg-l,.kw-leg-r{position:absolute;top:40px;width:5px;height:10px;border-radius:3px}
-.kw-leg-l{left:18px}
-.kw-leg-r{right:18px}
-.kw-foot-l,.kw-foot-r{position:absolute;top:49px;width:7px;height:4px;border-radius:2px 4px 2px 2px}
-.kw-foot-l{left:16px}
-.kw-foot-r{right:16px}
+.canvas-msg{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);text-align:center;color:rgba(255,255,255,.15);font-size:11px;font-weight:500;pointer-events:none;transition:opacity .5s}
 
-/* Laptop/desk */
-.kw-desk{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:48px;height:6px;border-radius:2px;z-index:0}
-.kw-laptop{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);z-index:0}
-.kw-laptop-base{width:24px;height:3px;border-radius:1px;margin:0 auto}
-.kw-laptop-screen{width:20px;height:14px;border-radius:2px 2px 0 0;margin:0 auto;position:relative;overflow:hidden}
-.busy .kw-laptop-screen{animation:laptopType 0.5s ease-in-out infinite}
-.kw-screen-lines{position:absolute;top:3px;left:3px;right:3px;bottom:2px;display:flex;flex-direction:column;gap:2px}
-.kw-screen-line{height:1px;border-radius:1px;opacity:0.7}
-.busy .kw-screen-line{animation:screenGlow 1.5s ease-in-out infinite}
-.busy .kw-screen-line:nth-child(2){animation-delay:0.3s}
-.busy .kw-screen-line:nth-child(3){animation-delay:0.6s}
+.status-bar{padding:8px 20px;border-top:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:14px;background:rgba(8,8,24,.7);flex-shrink:0}
+.status-bar .pi{font-size:10px;font-weight:700;letter-spacing:.5px}
+.status-bar .sts{font-size:9px;color:rgba(255,255,255,.25);margin-left:auto;display:flex;gap:12px}
+.status-bar .sts span{font-weight:700}
 
-/* Code block stack */
-.kw-blocks{position:absolute;bottom:10px;display:flex;flex-direction:column-reverse;align-items:center;gap:2px}
-.kw-block{width:28px;height:10px;border-radius:3px;animation:blockDrop 0.4s ease-out;position:relative;overflow:hidden;display:flex;align-items:center;padding-left:3px}
-.kw-block::after{content:'';position:absolute;top:0;width:10px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);animation:blockShine 2s linear infinite}
-.kw-block-line{width:60%;height:2px;border-radius:1px;background:rgba(255,255,255,0.3)}
+.output-panel{max-height:45vh;overflow-y:auto;border-top:1px solid rgba(255,255,255,.04);padding:14px 20px;flex-shrink:0;background:rgba(8,8,24,.5)}
+.complete-banner{text-align:center;padding:14px;margin-bottom:12px;background:linear-gradient(135deg,rgba(16,185,129,.05),rgba(217,119,6,.05));border-radius:14px;border:1px solid rgba(16,185,129,.12);animation:fadeIn .5s ease}
+.complete-banner .cb-title{font-weight:800;color:#10B981;font-size:14px}
+.complete-banner .cb-sub{font-size:10px;color:rgba(255,255,255,.3);margin-top:4px}
+.cb-metrics{display:flex;gap:14px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.cb-metric{font-size:9px;color:rgba(255,255,255,.35)}.cb-metric span{color:#10B981;font-weight:700}
 
-/* Done stars */
-.kw-star{position:absolute;width:6px;height:6px;animation:starPop 1s ease-out infinite}
-.kw-star::before,.kw-star::after{content:'';position:absolute;background:currentColor}
-.kw-star::before{width:6px;height:2px;top:2px;left:0;border-radius:1px}
-.kw-star::after{width:2px;height:6px;top:0;left:2px;border-radius:1px}
-
-/* Shadow */
-.kw-shadow{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:36px;height:5px;border-radius:50%;opacity:0.2}
-
-/* Status area below canvas */
-.status-bar{padding:6px 18px;border-top:1px solid #1a1a2e;display:flex;align-items:center;gap:12px;background:#0a0a1a;flex-shrink:0}
-.status-bar .phase-info{font-size:10px;font-weight:600;letter-spacing:0.5px}
-.status-bar .stats{font-size:9px;color:#666;margin-left:auto;display:flex;gap:10px}
-.status-bar .stats span{color:#F59E0B;font-weight:600}
-
-/* Output panel */
-.output-panel{max-height:45vh;overflow-y:auto;border-top:1px solid #1a1a2e;padding:12px 18px;flex-shrink:0}
-.output-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px}
-.output-toggle .label{font-size:10px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1px}
-.output-toggle .arrow{font-size:10px;color:#10B981;transition:transform 0.2s}
-
-.final-output{text-align:left;background:#0a0a1a;border:1px solid #10B98130;border-radius:10px;overflow:hidden;animation:fadeIn 0.3s ease}
-.final-output-header{padding:10px 14px;background:#10B98110;border-bottom:1px solid #10B98120;display:flex;align-items:center;gap:8px}
-.final-output-header .label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1px}
-.final-output-body{padding:14px 16px;font-size:11px;color:#c8d6e5;line-height:1.6;max-height:400px;overflow-y:auto}
-
-.complete-banner{text-align:center;padding:12px;margin-bottom:10px;background:linear-gradient(135deg,#10B98112,#D9770612);border-radius:10px;border:1px solid #10B98130}
-.complete-banner .title{font-weight:700;color:#10B981;font-size:13px}
-.complete-banner .sub{font-size:10px;color:#666;margin-top:3px}
-.metrics{display:flex;gap:12px;justify-content:center;margin-top:6px;flex-wrap:wrap}
-.metric{font-size:9px;color:#888}.metric span{color:#10B981;font-weight:600}
-
-/* Empty state in canvas */
-.canvas-empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#333}
-.canvas-empty .icon{font-size:48px;margin-bottom:12px}
-.canvas-empty .title{font-size:15px;font-weight:600;color:#555;margin-bottom:6px}
-.canvas-empty .sub{font-size:11px;color:#444;max-width:350px;line-height:1.5}
+.final-output{text-align:left;background:rgba(16,185,129,.02);border:1px solid rgba(16,185,129,.1);border-radius:14px;overflow:hidden;animation:fadeIn .5s ease}
+.fo-header{padding:12px 16px;background:rgba(16,185,129,.05);border-bottom:1px solid rgba(16,185,129,.08);display:flex;align-items:center;gap:10px}
+.fo-header .fo-label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1.5px}
+.fo-body{padding:16px 18px;font-size:12px;color:#c8d6e5;line-height:1.7;max-height:400px;overflow-y:auto}
 </style>
 </head>
 <body>
 <div class="app" id="app"></div>
 <script>
-const state={sessionId:null,ws:null,connected:false,running:false,agents:{},activeAgents:new Set(),busyAgents:new Set(),agentActions:{},agentStreams:{},messageCounts:{},log:[],phase:null,decomposition:null,trustProfile:{},trailStats:null,metrics:null,finalOutput:null,completedSteps:0,totalSteps:0,taskCount:0};
-const PC={decomposing:"#8B5CF6",discovery:"#3B82F6",architecture:"#D97706",execution:"#10B981",verification:"#EF4444",verifying:"#EF4444",synthesis:"#8B5CF6"};
+var state={sessionId:null,ws:null,connected:false,running:false,agents:{},activeAgents:new Set(),busyAgents:new Set(),agentActions:{},agentStreams:{},messageCounts:{},log:[],phase:null,decomposition:null,trustProfile:{},trailStats:null,metrics:null,finalOutput:null,completedSteps:0,totalSteps:0,taskCount:0};
+var PC={decomposing:'#8B5CF6',discovery:'#3B82F6',architecture:'#D97706',execution:'#10B981',verification:'#EF4444',verifying:'#EF4444',synthesis:'#8B5CF6'};
+var BOY='#7C6EF6',GIRL='#F472B6';
 
 async function init(){
-  const r=await fetch("/api/sessions",{method:"POST"});const{sessionId}=await r.json();state.sessionId=sessionId;
-  const proto=location.protocol==="https:"?"wss":"ws";
-  const ws=new WebSocket(proto+"://"+location.host+"/ws/"+sessionId);state.ws=ws;
-  ws.onopen=()=>{state.connected=true;scheduleRender()};ws.onclose=()=>{state.connected=false;scheduleRender()};
-  ws.onmessage=(e)=>handle(JSON.parse(e.data));
+  var r=await fetch('/api/sessions',{method:'POST'});var d=await r.json();state.sessionId=d.sessionId;
+  var proto=location.protocol==='https:'?'wss':'ws';
+  var ws=new WebSocket(proto+'://'+location.host+'/ws/'+d.sessionId);state.ws=ws;
+  ws.onopen=function(){state.connected=true;scheduleRender()};
+  ws.onclose=function(){state.connected=false;scheduleRender()};
+  ws.onmessage=function(e){handle(JSON.parse(e.data))};
 }
 
 function handle(m){
   switch(m.type){
-    case "connected":m.data.agents.forEach(a=>{state.agents[a.id]=a});state.trustProfile=m.data.trustProfile||{};scheduleRender();break;
-    case "swarm_start":state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.finalOutput=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;scheduleRender();break;
-    case "phase_change":state.phase=m.data;scheduleRender();break;
-    case "decomposition_complete":state.decomposition=m.data;state.totalSteps=m.data.activeDomains.length+2;scheduleRender();break;
-    case "trust_routing":state.log.push({type:"routing",...m.data,time:ts()});scheduleRender();break;
-    case "trust_update":if(state.trustProfile[m.data.agentId])state.trustProfile[m.data.agentId][m.data.domain]=m.data.newTrust;scheduleRender();break;
-    case "agent_start":state.activeAgents.add(m.data.agentId);state.busyAgents.add(m.data.agentId);state.agentActions[m.data.agentId]=m.data.task?.slice(0,80)+"...";state.agentStreams[m.data.agentId]="";state.messageCounts[m.data.agentId]=(state.messageCounts[m.data.agentId]||0)+1;scheduleRender();break;
-    case "agent_token":state.agentStreams[m.data.agentId]=(state.agentStreams[m.data.agentId]||"")+m.data.token;state.agentActions[m.data.agentId]=state.agentStreams[m.data.agentId].slice(-120);updateAgentToken(m.data.agentId);break;
-    case "agent_complete":state.busyAgents.delete(m.data.agentId);state.agentActions[m.data.agentId]=null;state.agentStreams[m.data.agentId]="";state.completedSteps++;state.log.push({agentId:m.data.agentId,name:m.data.name,output:m.data.output,artifactType:m.data.artifactType,domain:m.data.domain,confidence:m.data.confidence,pheromone:m.data.pheromone,time:ts(),agent:state.agents[m.data.agentId]});scheduleRender();break;
-    case "swarm_complete":state.running=false;state.phase=null;state.metrics=m.data.metrics;state.finalOutput=m.data.finalOutput||null;state.taskCount++;scheduleRender();break;
+    case 'connected':m.data.agents.forEach(function(a){state.agents[a.id]=a});state.trustProfile=m.data.trustProfile||{};scheduleRender();break;
+    case 'swarm_start':state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.finalOutput=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;scheduleRender();break;
+    case 'phase_change':state.phase=m.data;scheduleRender();break;
+    case 'decomposition_complete':state.decomposition=m.data;state.totalSteps=m.data.activeDomains.length+2;scheduleRender();break;
+    case 'trust_routing':break;
+    case 'trust_update':if(state.trustProfile[m.data.agentId])state.trustProfile[m.data.agentId][m.data.domain]=m.data.newTrust;scheduleRender();break;
+    case 'agent_start':state.activeAgents.add(m.data.agentId);state.busyAgents.add(m.data.agentId);state.agentActions[m.data.agentId]=(m.data.task||'').slice(0,80)+'...';state.agentStreams[m.data.agentId]='';state.messageCounts[m.data.agentId]=(state.messageCounts[m.data.agentId]||0)+1;scheduleRender();break;
+    case 'agent_token':state.agentStreams[m.data.agentId]=(state.agentStreams[m.data.agentId]||'')+m.data.token;state.agentActions[m.data.agentId]=state.agentStreams[m.data.agentId].slice(-120);updateToken(m.data.agentId);break;
+    case 'agent_complete':state.busyAgents.delete(m.data.agentId);state.agentActions[m.data.agentId]=null;state.agentStreams[m.data.agentId]='';state.completedSteps++;state.log.push({agentId:m.data.agentId,name:m.data.name,output:m.data.output,artifactType:m.data.artifactType,domain:m.data.domain,confidence:m.data.confidence,pheromone:m.data.pheromone,agent:state.agents[m.data.agentId]});scheduleRender();break;
+    case 'swarm_complete':state.running=false;state.phase=null;state.metrics=m.data.metrics;state.finalOutput=m.data.finalOutput||null;state.taskCount++;scheduleRender();break;
   }
 }
 
-function ts(){return new Date().toTimeString().slice(0,8)}
-function submit(t){if(!t.trim()||state.running||!state.ws)return;state.ws.send(JSON.stringify({type:"run_task",task:t}))}
-function esc(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function submit(t){if(!t||!t.trim()||state.running||!state.ws)return;state.ws.send(JSON.stringify({type:'run_task',task:t}))}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function md(s){
   return esc(s)
-    .replace(/^### (.+)$/gm,'<div style="font-size:11px;font-weight:700;color:#c4b5fd;margin:8px 0 3px">$1</div>')
-    .replace(/^## (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#e0e0e0;margin:10px 0 4px;border-bottom:1px solid #ffffff10;padding-bottom:3px">$1</div>')
-    .replace(/^# (.+)$/gm,'<div style="font-size:13px;font-weight:800;color:#fff;margin:10px 0 5px">$1</div>')
+    .replace(/^### (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#c4b5fd;margin:8px 0 4px">$1</div>')
+    .replace(/^## (.+)$/gm,'<div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:10px 0 5px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:4px">$1</div>')
+    .replace(/^# (.+)$/gm,'<div style="font-size:14px;font-weight:800;color:#fff;margin:12px 0 6px">$1</div>')
     .replace(/\\*\\*(.+?)\\*\\*/g,'<strong style="color:#f0f0f0">$1</strong>')
-    .replace(/^- (.+)$/gm,'<div style="padding-left:10px;margin:1px 0"><span style="color:#8B5CF6;margin-right:4px">&#8226;</span>$1</div>')
+    .replace(/^- (.+)$/gm,'<div style="padding-left:12px;margin:2px 0"><span style="color:#8B5CF6;margin-right:5px">&#8226;</span>$1</div>')
     .replace(/\\n/g,'<br>');
 }
 
-let renderPending=false;
-function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(()=>{renderPending=false;render()});}
+var renderPending=false;
+function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(function(){renderPending=false;render()})}
 
-function updateAgentToken(agentId){
-  // Update sidebar card action text
-  const cards=document.querySelectorAll(".agent-card");
-  const al=Object.values(state.agents);
-  const idx=al.findIndex(a=>a.id===agentId);
-  if(idx<0||!cards[idx])return scheduleRender();
-  const card=cards[idx];const a=al[idx];
-  const action=state.agentActions[agentId];const busy=state.busyAgents.has(agentId);
-  let actionEl=card.querySelector(".action");
+function updateToken(agentId){
+  var el=document.getElementById('ac-'+agentId);
+  if(!el)return;
+  var a=state.agents[agentId];if(!a)return;
+  var action=state.agentActions[agentId];
+  var busy=state.busyAgents.has(agentId);
+  var actEl=el.querySelector('.action');
   if(action){
-    const html=esc(action.slice(-100))+(busy?'<span class="stream-indicator"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':"");
-    if(actionEl){actionEl.innerHTML=html;}
-    else{actionEl=document.createElement("div");actionEl.className="action";actionEl.style.cssText="color:"+a.color+";border-color:"+a.color;actionEl.innerHTML=html;card.appendChild(actionEl);}
-  }else if(actionEl){actionEl.remove();}
-  // Update canvas bubble
-  const bubble=document.querySelector('.kw-bubble[data-agent="'+agentId+'"]');
-  if(bubble&&action){bubble.textContent=action.slice(-35);}
-}
-
-// Gender assignment for kawaii characters (alternating boy/girl)
-const GENDER_MAP={orchestrator:'boy',researcher:'girl',planner:'boy',senior:'girl',frontend:'boy',backend:'girl',systems:'boy',writer:'girl',reviewer:'boy'};
-
-function buildKawaii(agent,idx,total,isBusy,isDone,action,blockCount){
-  const g=GENDER_MAP[agent.id]||(idx%2===0?'boy':'girl');
-  const spacing=total>1?80/(total-1):50;
-  const leftPct=total>1?10+idx*spacing:50;
-  const st=isBusy?'busy':(isDone?'done':'idle');
-  const c=agent.color;
-  const blocks=Math.min(blockCount||0,6);
-
-  // Build stacking code blocks
-  var blockHtml='';
-  if(blocks>0){
-    blockHtml='<div class="kw-blocks" style="right:-18px">';
-    for(var b=0;b<blocks;b++){
-      var opacity=0.5+b*0.1;
-      blockHtml+='<div class="kw-block" style="background:'+c+';opacity:'+opacity+';animation-delay:'+b*0.1+'s"><div class="kw-block-line"></div></div>';
-    }
-    blockHtml+='</div>';
+    var html=esc(action.slice(-100))+(busy?'<span class="si"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':'');
+    if(actEl){actEl.innerHTML=html}
+    else{actEl=document.createElement('div');actEl.className='action';actEl.style.cssText='color:'+a.color+';border-color:'+a.color;actEl.innerHTML=html;el.appendChild(actEl)}
+  }else if(actEl){actEl.remove()}
+  var boyBub=document.getElementById('bub-boy');
+  var girlBub=document.getElementById('bub-girl');
+  if(boyBub&&action){
+    var busyList=Array.from(state.busyAgents);
+    var idx=busyList.indexOf(agentId);
+    if(idx%2===0&&boyBub){boyBub.className='char-bubble on';boyBub.style.borderColor=a.color+'40';boyBub.style.color=a.color;boyBub.textContent=a.emoji+' '+action.slice(-30)}
+    if(idx%2===1&&girlBub){girlBub.className='char-bubble on';girlBub.style.borderColor=a.color+'40';girlBub.style.color=a.color;girlBub.textContent=a.emoji+' '+action.slice(-30)}
   }
-
-  return '<div class="kw-char '+st+'" style="left:'+leftPct+'%;transform:translateX(-50%)">'
-    // Speech bubble
-    +(action?'<div class="kw-bubble" data-agent="'+agent.id+'" style="border-color:'+c+'50;color:'+c+'">'+esc((action||'').slice(-35))+'</div>':'')
-    // Name
-    +'<div class="kw-name" style="color:'+c+'">'+agent.emoji+' '+agent.name+'</div>'
-    +'<div class="kw-body">'
-    // Head (big kawaii head!)
-    +'<div class="kw-head" style="background:'+c+'18;border-color:'+c+'">'
-    +'<div class="kw-eyes"><div class="kw-eye"></div><div class="kw-eye"></div></div>'
-    +'<div class="kw-mouth"></div>'
-    +'<div class="kw-blush-l" style="background:'+c+'"></div>'
-    +'<div class="kw-blush-r" style="background:'+c+'"></div>'
-    +'</div>'
-    // Hair
-    +(g==='girl'
-      ?'<div class="kw-hair-girl" style="background:'+c+'70">'
-       +'<div class="kw-pigtail-l" style="background:'+c+'70"></div>'
-       +'<div class="kw-pigtail-r" style="background:'+c+'70"></div>'
-       +'<div class="kw-bow" style="color:'+c+'"><span style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:3px;height:3px;background:'+c+';border-radius:50%"></span></div>'
-       +'</div>'
-      :'<div class="kw-hair-boy">'
-       +'<div class="kw-spike" style="border-bottom:9px solid '+c+'"></div>'
-       +'<div class="kw-spike" style="border-bottom:11px solid '+c+'"></div>'
-       +'<div class="kw-spike" style="border-bottom:8px solid '+c+'"></div>'
-       +'</div>')
-    // Body
-    +'<div class="kw-torso" style="background:'+c+'20;border-color:'+c+'60"></div>'
-    +'<div class="kw-arm-l" style="background:'+c+'50"></div>'
-    +'<div class="kw-arm-r" style="background:'+c+'50"></div>'
-    +'<div class="kw-leg-l" style="background:'+c+'35"></div>'
-    +'<div class="kw-leg-r" style="background:'+c+'35"></div>'
-    +'<div class="kw-foot-l" style="background:'+c+'"></div>'
-    +'<div class="kw-foot-r" style="background:'+c+'"></div>'
-    // Laptop
-    +'<div class="kw-laptop">'
-    +'<div class="kw-laptop-screen" style="background:'+c+'30;border:1px solid '+c+'50">'
-    +'<div class="kw-screen-lines">'
-    +'<div class="kw-screen-line" style="background:'+c+';width:70%"></div>'
-    +'<div class="kw-screen-line" style="background:'+c+';width:50%"></div>'
-    +'<div class="kw-screen-line" style="background:'+c+';width:85%"></div>'
-    +'</div></div>'
-    +'<div class="kw-laptop-base" style="background:'+c+'60"></div>'
-    +'</div>'
-    // Desk
-    +'<div class="kw-desk" style="background:'+c+'15;border:1px solid '+c+'25"></div>'
-    // Shadow
-    +'<div class="kw-shadow" style="background:'+c+'"></div>'
-    +'</div>'
-    // Stacking blocks
-    +blockHtml
-    // Done stars
-    +(isDone
-      ?'<div class="kw-star" style="color:'+c+';top:-5px;left:0;animation-delay:0s"></div>'
-       +'<div class="kw-star" style="color:'+c+';top:-10px;right:0;animation-delay:0.3s"></div>'
-       +'<div class="kw-star" style="color:'+c+';top:5px;right:-8px;animation-delay:0.6s"></div>'
-      :'')
-    +'</div>';
 }
 
-function generateStars(){
-  let s='';
-  for(let i=0;i<40;i++){
-    const x=Math.random()*100;const y=Math.random()*100;const d=Math.random()*3;const sz=1+Math.random()*2;
+function charState(){
+  if(!state.running&&state.metrics)return 'done';
+  if(state.running&&state.busyAgents.size>0)return 'working';
+  if(state.running)return 'working';
+  return 'idle';
+}
+
+function buildChar(gender,color){
+  var cs=charState();
+  var s='<div class="char '+cs+'">';
+  s+='<div class="char-bubble" id="bub-'+gender+'"></div>';
+  s+='<div class="cn" style="color:'+color+'">'+(gender==='boy'?'He builds':'She creates')+'</div>';
+  s+='<div class="cw">';
+  s+='<div class="c-head" style="background:#fdd8c4;border:2px solid '+color+'40">';
+  s+='<div class="c-eyes"><div class="c-eye"></div><div class="c-eye"></div></div>';
+  s+='<div class="c-mouth"></div>';
+  s+='<div class="c-blush bl" style="background:'+color+'"></div>';
+  s+='<div class="c-blush br" style="background:'+color+'"></div>';
+  s+='</div>';
+  if(gender==='boy'){
+    s+='<div class="h-boy">';
+    s+='<div class="h-spike" style="border-bottom:10px solid '+color+'"></div>';
+    s+='<div class="h-spike" style="border-bottom:13px solid '+color+'"></div>';
+    s+='<div class="h-spike" style="border-bottom:11px solid '+color+'"></div>';
+    s+='<div class="h-spike" style="border-bottom:9px solid '+color+'"></div>';
+    s+='</div>';
+  }else{
+    s+='<div class="h-girl" style="background:'+color+'80">';
+    s+='<div class="h-side hl" style="background:'+color+'80"></div>';
+    s+='<div class="h-side hr" style="background:'+color+'80"></div>';
+    s+='<div class="h-bow" style="color:'+color+'">';
+    s+='<div class="h-bow-dot" style="background:'+color+'"></div>';
+    s+='</div></div>';
+  }
+  s+='<div class="c-torso" style="background:'+color+'25;border:2px solid '+color+'40"></div>';
+  s+='<div class="c-arm al" style="background:'+color+'50"></div>';
+  s+='<div class="c-arm ar" style="background:'+color+'50"></div>';
+  s+='<div class="c-leg ll" style="background:'+color+'30"></div>';
+  s+='<div class="c-leg lr" style="background:'+color+'30"></div>';
+  s+='<div class="c-foot fl" style="background:'+color+'"></div>';
+  s+='<div class="c-foot fr" style="background:'+color+'"></div>';
+  s+='<div class="c-laptop">';
+  s+='<div class="lp-screen" style="background:'+color+'20;border-color:'+color+'40">';
+  s+='<div class="sc-lines">';
+  s+='<div class="sc-line" style="background:'+color+';width:70%"></div>';
+  s+='<div class="sc-line" style="background:'+color+';width:50%"></div>';
+  s+='<div class="sc-line" style="background:'+color+';width:85%"></div>';
+  s+='</div></div>';
+  s+='<div class="lp-base" style="background:'+color+'50"></div>';
+  s+='</div>';
+  s+='<div class="c-desk" style="background:'+color+'12;border:1px solid '+color+'20"></div>';
+  s+='<div class="c-shadow" style="background:'+color+'"></div>';
+  s+='</div>';
+  if(cs==='done'){
+    s+='<div class="c-sparkle" style="color:'+color+';top:-8px;left:5px;animation-delay:0s"></div>';
+    s+='<div class="c-sparkle" style="color:'+color+';top:-14px;right:5px;animation-delay:.3s"></div>';
+    s+='<div class="c-sparkle" style="color:'+color+';top:0;right:-10px;animation-delay:.6s"></div>';
+  }
+  s+='</div>';
+  return s;
+}
+
+function stars(){
+  var s='';
+  for(var i=0;i<50;i++){
+    var x=Math.random()*100,y=Math.random()*100,d=Math.random()*4,sz=1+Math.random()*2;
     s+='<div class="canvas-star" style="left:'+x+'%;top:'+y+'%;width:'+sz+'px;height:'+sz+'px;animation-delay:'+d+'s"></div>';
   }
   return s;
 }
 
 function render(){
-  const app=document.getElementById("app");
-  const al=Object.values(state.agents);
-  // Determine which agents to show on canvas
-  const canvasAgents=al.filter(a=>state.activeAgents.has(a.id));
-  const hasActivity=canvasAgents.length>0||state.finalOutput||state.decomposition;
-
-  app.innerHTML=
-    '<div class="header">'
-    +'<div class="logo">🧬</div>'
-    +'<div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence · '+al.length+' agents · '+state.taskCount+' task'+(state.taskCount===1?'':'s')+'</p></div>'
-    +(state.phase?'<div class="phase-badge"><div class="phase-dot" style="background:'+(PC[state.phase.phase]||'#8B5CF6')+'"></div><span class="phase-label" style="color:'+(PC[state.phase.phase]||'#8B5CF6')+'">'+state.phase.label+'</span></div>':'')
-    +'<div style="font-size:10px;color:#555;margin-left:auto">'+(state.connected?'<span style="color:#10B981">● Live</span>':'Connecting...')+' · '+(state.sessionId||'...')+'</div>'
-    +'</div>'
-    +'<div class="main">'
-    // Sidebar
-    +'<div class="sidebar">'
-    +'<div class="sidebar-title">Agent Fleet + Trust</div>'
-    +al.map(function(a){
-      var active=state.activeAgents.has(a.id),busy=state.busyAgents.has(a.id);
-      var action=state.agentActions[a.id],count=state.messageCounts[a.id]||0;
-      var tp=state.trustProfile[a.id]||{};
-      var entries=Object.entries(tp).sort(function(x,y){return(y[1].expected||0)-(x[1].expected||0)});
-      var bestDomain=entries[0];
-      var trustPct=bestDomain?Math.round((bestDomain[1].expected||0)*100):0;
-      return '<div class="agent-card'+(active?' active':'')+'" style="border-color:'+(active?a.color:'#222244')+';'+(active?'box-shadow:0 0 12px '+a.color+'30;background:'+a.color+'12':'')+'">'
-        +(busy?'<div class="sweep-bar" style="background:linear-gradient(90deg,transparent,'+a.color+',transparent)"></div>':'')
-        +'<div class="head"><span class="emoji">'+a.emoji+'</span><div style="flex:1"><div class="name">'+a.name+'</div><div class="role" style="color:'+a.color+'">'+a.role+'</div></div>'
-        +(count?'<span class="badge" style="background:'+a.color+'">'+count+'</span>':'')
-        +'</div>'
-        +(bestDomain?'<div class="trust-bar"><div class="trust-fill" style="width:'+trustPct+'%;background:'+a.color+'"></div></div><div class="trust-label">Trust: '+trustPct+'% in '+bestDomain[0]+'</div>':'')
-        +(action?'<div class="action" style="color:'+a.color+';border-color:'+a.color+'">'+esc(action.slice(-100))+(busy?'<span class="stream-indicator"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':'')+'</div>':'')
-        +'</div>';
-    }).join('')
-    +'</div>'
-    // Content - Canvas
-    +'<div class="content">'
-    +'<div class="input-area"><div class="input-row">'
-    +'<input id="ti" placeholder="Describe a task — SESI agents will decompose, route by trust, and collaborate..." '+(state.running?'disabled':'')+' onkeydown="if(event.key===\'Enter\')submit(this.value)">'
-    +'<button class="btn-deploy" onclick="submit(document.getElementById(\'ti\').value)" '+(state.running?'disabled':'')+'>Deploy SESI</button>'
-    +'</div>'
-    +'<div class="presets">'+["Build a SaaS MVP with auth and billing","Architect a scalable microservices system","Write a technical deep-dive on event sourcing","Create a real-time chat architecture","Design a CI/CD pipeline for Kubernetes"].map(function(p){return '<button onclick="document.getElementById(\'ti\').value=\''+p+'\'">'+p+'</button>';}).join('')+'</div>'
-    +'</div>'
-    // Canvas
-    +'<div class="canvas-area">'
-    +'<div class="canvas-stars">'+generateStars()+'</div>'
-    +'<div class="canvas-floor"></div>'
-    +(!hasActivity
-      ?'<div class="canvas-empty"><div class="icon">🧬</div><div class="title">SESI Protocol standing by</div><div class="sub">Enter any task — cute agents will appear here and start building your solution block by block!</div></div>'
-      :canvasAgents.map(function(a,i){
-        var busy=state.busyAgents.has(a.id);
-        var done=!busy&&state.log.some(function(e){return e.agentId===a.id;});
-        var action=state.agentActions[a.id];
-        var msgCount=state.messageCounts[a.id]||0;
-        return buildKawaii(a,i,canvasAgents.length,busy,done,action,msgCount);
-      }).join(''))
-    +'</div>'
-    // Status bar
-    +(state.phase||state.metrics
-      ?'<div class="status-bar">'
-       +(state.phase?'<div class="phase-info" style="color:'+(PC[state.phase.phase]||'#8B5CF6')+'">'+state.phase.label+'</div>':'')
-       +(state.decomposition?'<span style="font-size:9px;color:#555">'+state.decomposition.activeDomains.length+' domains · '+state.decomposition.phases.length+' phases</span>':'')
-       +'<div class="stats">'
-       +(state.metrics?'<span>'+state.metrics.agentCalls+' calls</span> · <span>'+(state.metrics.pheromoneTrail?.total||0)+' artifacts</span> · <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span>':'')
-       +'</div></div>'
-      :'')
-    // Output panel
-    +(state.finalOutput||(!state.running&&state.metrics)
-      ?'<div class="output-panel">'
-       +(!state.running&&state.metrics
-         ?'<div class="complete-banner"><div class="title">SESI task complete</div><div class="sub">'+state.metrics.agentCalls+' agent calls · '+(state.metrics.pheromoneTrail?.total||0)+' artifacts · trust updated</div>'
-          +'<div class="metrics"><div class="metric">Duration: <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span></div><div class="metric">Domains: <span>'+(state.metrics.decomposition?.activeDomains||0)+'</span></div><div class="metric">Phases: <span>'+(state.metrics.decomposition?.phases||0)+'</span></div><div class="metric">Tokens: <span>~'+state.metrics.tokensEstimate+'</span></div></div></div>'
-         :'')
-       +(state.finalOutput
-         ?'<div class="final-output"><div class="final-output-header"><span style="font-size:16px">📋</span><span class="label">Final Deliverable</span></div><div class="final-output-body">'+md(state.finalOutput)+'</div></div>'
-         :'')
-       +'</div>'
-      :'')
-    +'</div>'
-    +'</div>';
+  var app=document.getElementById('app');
+  var al=Object.values(state.agents);
+  var cs=charState();
+  var h='';
+  h+='<div class="header">';
+  h+='<div class="logo">&#x1f9ec;</div>';
+  h+='<div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence &middot; '+al.length+' agents &middot; '+state.taskCount+' task'+(state.taskCount===1?'':'s')+'</p></div>';
+  if(state.phase){var pc=PC[state.phase.phase]||'#8B5CF6';h+='<div class="phase-badge"><div class="phase-dot" style="background:'+pc+'"></div><span class="phase-label" style="color:'+pc+'">'+state.phase.label+'</span></div>'}
+  h+='<div class="conn-info">'+(state.connected?'<span style="color:#10B981">&#9679; Live</span>':'Connecting...')+' &middot; '+(state.sessionId||'...')+'</div>';
+  h+='</div>';
+  h+='<div class="main">';
+  h+='<div class="sidebar"><div class="sidebar-title">Agent Fleet + Trust</div>';
+  al.forEach(function(a){
+    var active=state.activeAgents.has(a.id),busy=state.busyAgents.has(a.id);
+    var action=state.agentActions[a.id],count=state.messageCounts[a.id]||0;
+    var tp=state.trustProfile[a.id]||{};
+    var entries=Object.entries(tp).sort(function(x,y){return(y[1].expected||0)-(x[1].expected||0)});
+    var best=entries[0];var trustPct=best?Math.round((best[1].expected||0)*100):0;
+    h+='<div class="agent-card'+(active?' active':'')+'" id="ac-'+a.id+'" style="border-color:'+(active?a.color:'rgba(255,255,255,.06)')+';'+(active?'box-shadow:0 0 20px '+a.color+'18;background:'+a.color+'08':'')+'">';
+    if(busy)h+='<div class="sweep-bar" style="background:linear-gradient(90deg,transparent,'+a.color+',transparent)"></div>';
+    h+='<div class="ac-head"><span class="emoji">'+a.emoji+'</span><div style="flex:1"><div class="name">'+a.name+'</div><div class="role" style="color:'+a.color+'">'+a.role+'</div></div>';
+    if(count)h+='<span class="badge" style="background:'+a.color+'">'+count+'</span>';
+    h+='</div>';
+    if(best)h+='<div class="trust-bar"><div class="trust-fill" style="width:'+trustPct+'%;background:'+a.color+'"></div></div><div class="trust-label">Trust: '+trustPct+'% in '+best[0]+'</div>';
+    if(action)h+='<div class="action" style="color:'+a.color+';border-color:'+a.color+'">'+esc(action.slice(-100))+(busy?'<span class="si"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':'')+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div class="content">';
+  h+='<div class="input-area"><div class="input-row">';
+  h+='<input id="ti" placeholder="Describe a task \\u2014 SESI agents will decompose, route by trust, and collaborate..." '+(state.running?'disabled':'')+' onkeydown="if(event.key===\\'Enter\\')submit(this.value)">';
+  h+='<button class="btn-deploy" onclick="submit(document.getElementById(\\'ti\\').value)" '+(state.running?'disabled':'')+'>Deploy SESI</button>';
+  h+='</div>';
+  h+='<div class="presets">';
+  var ps=["Build a SaaS MVP with auth and billing","Architect a scalable microservices system","Write a technical deep-dive on event sourcing","Create a real-time chat architecture","Design a CI/CD pipeline for Kubernetes"];
+  ps.forEach(function(p){h+='<button onclick="document.getElementById(\\'ti\\').value=\\''+p+'\\'">'+p+'</button>'});
+  h+='</div></div>';
+  h+='<div class="canvas-area">';
+  h+='<div class="canvas-stars">'+stars()+'</div>';
+  h+='<div class="canvas-floor"></div>';
+  h+='<div class="chars-wrap">'+buildChar('boy',BOY)+buildChar('girl',GIRL)+'</div>';
+  if(cs==='idle')h+='<div class="canvas-msg">Enter a task above \\u2014 the agents will start building!</div>';
+  h+='</div>';
+  if(state.phase||state.metrics){
+    h+='<div class="status-bar">';
+    if(state.phase){var pc2=PC[state.phase.phase]||'#8B5CF6';h+='<div class="pi" style="color:'+pc2+'">'+state.phase.label+'</div>'}
+    if(state.decomposition)h+='<span style="font-size:9px;color:rgba(255,255,255,.2)">'+state.decomposition.activeDomains.length+' domains &middot; '+state.decomposition.phases.length+' phases</span>';
+    h+='<div class="sts">';
+    if(state.metrics)h+='<span style="color:#F59E0B">'+state.metrics.agentCalls+' calls</span> &middot; <span style="color:#10B981">'+(state.metrics.pheromoneTrail&&state.metrics.pheromoneTrail.total||0)+' artifacts</span> &middot; <span style="color:#8B5CF6">'+(state.metrics.duration/1000).toFixed(1)+'s</span>';
+    h+='</div></div>';
+  }
+  if(state.finalOutput||(!state.running&&state.metrics)){
+    h+='<div class="output-panel">';
+    if(!state.running&&state.metrics){
+      h+='<div class="complete-banner"><div class="cb-title">&#10024; SESI Task Complete</div><div class="cb-sub">'+state.metrics.agentCalls+' agent calls &middot; '+(state.metrics.pheromoneTrail&&state.metrics.pheromoneTrail.total||0)+' artifacts &middot; trust updated</div>';
+      h+='<div class="cb-metrics"><div class="cb-metric">Duration: <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span></div><div class="cb-metric">Domains: <span>'+(state.metrics.decomposition&&state.metrics.decomposition.activeDomains||0)+'</span></div><div class="cb-metric">Phases: <span>'+(state.metrics.decomposition&&state.metrics.decomposition.phases||0)+'</span></div><div class="cb-metric">Tokens: <span>~'+state.metrics.tokensEstimate+'</span></div></div></div>'
+    }
+    if(state.finalOutput){
+      h+='<div class="final-output"><div class="fo-header"><span style="font-size:16px">&#128203;</span><span class="fo-label">Final Deliverable</span></div><div class="fo-body">'+md(state.finalOutput)+'</div></div>'
+    }
+    h+='</div>';
+  }
+  h+='</div></div>';
+  app.innerHTML=h;
 }
 render();init();
 </script>
 </body>
-</html>`);
+</html>
+`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
