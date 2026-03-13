@@ -24,18 +24,39 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import cors from "cors";
+import { createLogger } from "./scripts/lib/logger.js";
+import { withRetry } from "./scripts/lib/retry.js";
+import { CostTracker } from "./scripts/lib/cost-tracker.js";
+import { TrustPersistence } from "./scripts/lib/persistence.js";
+import { validateTaskInput, validateSessionId, rateLimit, requireApiKey, errorHandler } from "./scripts/lib/validate-input.js";
 
 dotenv.config();
 
+const log = createLogger("Server");
+const engineLog = createLogger("SESIEngine");
+const trailLog = createLogger("PheromoneTrail");
+const trustLog = createLogger("TrustModel");
+
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(rateLimit({ windowMs: 60000, maxRequests: 120 }));
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
+
+// Validate API key at startup
+if (!process.env.ANTHROPIC_API_KEY) {
+  log.warn("ANTHROPIC_API_KEY not set — API calls will fail");
+}
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Initialize cost tracker and persistence
+const costTracker = new CostTracker();
+const persistence = new TrustPersistence();
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  SESI PILLAR 1: Pheromone Trail (Stigmergic Knowledge Environment)
@@ -466,10 +487,19 @@ RECOMMENDATION: [what to fix]`,
   },
 };
 
-// Initialize trust model with agent capabilities
+// Initialize trust model with agent capabilities (load persisted state if available)
 const globalTrustModel = new EpistemicTrustModel();
 for (const [id, def] of Object.entries(AGENT_DEFS)) {
   globalTrustModel.initialize(id, def.capabilities);
+}
+
+// Restore persisted trust model from disk
+const savedTrust = persistence.loadTrustModel();
+if (savedTrust) {
+  globalTrustModel.trust = savedTrust;
+  trustLog.info("Restored trust model from disk", { agents: Object.keys(savedTrust).length });
+} else {
+  trustLog.info("Starting with fresh trust model (no persisted state found)");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -555,27 +585,43 @@ CONFIDENCE: [0.0-1.0]`,
     }];
 
     let fullResponse = "";
+    const model = process.env.SESI_MODEL || "claude-sonnet-4-20250514";
 
     try {
-      const stream = await anthropic.messages.stream({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: agentDef.systemPrompt,
-        messages,
-      });
-
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta?.text) {
-          const token = event.delta.text;
-          fullResponse += token;
-          this.broadcast(sessionId, {
-            type: "agent_token",
-            data: { agentId, token, name: agentDef.name },
-          });
+      await withRetry(async (attempt) => {
+        if (attempt > 0) {
+          engineLog.info(`Retry attempt ${attempt} for agent ${agentId}`, { domain });
         }
-      }
+
+        const stream = await anthropic.messages.stream({
+          model,
+          max_tokens: 4096,
+          system: agentDef.systemPrompt,
+          messages,
+        });
+
+        for await (const event of stream) {
+          if (event.type === "content_block_delta" && event.delta?.text) {
+            const token = event.delta.text;
+            fullResponse += token;
+            this.broadcast(sessionId, {
+              type: "agent_token",
+              data: { agentId, token, name: agentDef.name },
+            });
+          }
+        }
+      }, {
+        maxRetries: 3,
+        baseDelay: 2000,
+        onRetry: (err, attempt, delay) => {
+          engineLog.warn(`Agent ${agentId} call failed, retrying in ${delay}ms`, {
+            attempt, error: err.message, status: err.status,
+          });
+        },
+      });
     } catch (err) {
       fullResponse = `[Agent error: ${err.message}]`;
+      engineLog.error(`Agent ${agentId} failed after retries`, { error: err.message, domain });
       this.broadcast(sessionId, {
         type: "agent_error",
         data: { agentId, error: err.message },
@@ -601,7 +647,18 @@ CONFIDENCE: [0.0-1.0]`,
     }
 
     session.metrics.agentCalls++;
-    session.metrics.tokensEstimate += Math.ceil(fullResponse.length / 4);
+    const estimatedInputTokens = costTracker.estimateTokens(messages[0].content + (agentDef.systemPrompt || ""));
+    const estimatedOutputTokens = costTracker.estimateTokens(fullResponse);
+    session.metrics.tokensEstimate += estimatedInputTokens + estimatedOutputTokens;
+
+    // Track cost
+    costTracker.recordCall(sessionId, {
+      model: process.env.SESI_MODEL || "claude-sonnet-4-20250514",
+      agentId,
+      domain,
+      inputTokens: estimatedInputTokens,
+      outputTokens: estimatedOutputTokens,
+    });
 
     this.broadcast(sessionId, {
       type: "agent_complete",
@@ -799,6 +856,19 @@ CONFIDENCE: [0.0-1.0]`,
 
     const totalDuration = Date.now() - session.metrics.startTime;
 
+    // Persist trust model and session data to disk
+    persistence.saveTrustModel(globalTrustModel.trust);
+    persistence.saveSession(sessionId, {
+      task: taskText,
+      status: "complete",
+      metrics: session.metrics,
+      decomposition: session.decomposition,
+      agentSelections: session.agentSelections,
+      trailStats: session.trail.getStats(),
+    });
+    costTracker.persistMetrics(sessionId);
+    engineLog.info("Task complete", { sessionId, duration: totalDuration, agentCalls: session.metrics.agentCalls });
+
     this.broadcast(sessionId, {
       type: "swarm_complete",
       data: {
@@ -843,25 +913,45 @@ const sesi = new SESIEngine();
 //  REST API
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Health check endpoint (used by Docker HEALTHCHECK)
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    algorithm: "SESI",
+    version: "2.1.0",
+    uptime: process.uptime(),
+    activeSessions: sesi.sessions.size,
+  });
+});
+
 app.post("/api/sessions", (req, res) => {
   const sessionId = sesi.createSession();
+  log.info("Session created", { sessionId });
   res.json({ sessionId, wsUrl: `/ws/${sessionId}`, algorithm: "SESI" });
 });
 
-app.post("/api/sessions/:id/run", async (req, res) => {
+app.post("/api/sessions/:id/run", requireApiKey(), async (req, res) => {
   const { id } = req.params;
-  const { task } = req.body;
-  if (!task) return res.status(400).json({ error: "task is required" });
+
+  const idCheck = validateSessionId(id);
+  if (!idCheck.valid) return res.status(400).json({ error: idCheck.error });
+
+  const taskCheck = validateTaskInput(req.body?.task);
+  if (!taskCheck.valid) return res.status(400).json({ error: taskCheck.error });
 
   try {
-    const result = await sesi.executeTask(id, task);
+    const result = await sesi.executeTask(id, taskCheck.sanitized);
     res.json({ success: true, ...result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    log.error("Task execution failed", { sessionId: id, error: err.message });
+    res.status(500).json({ error: "Task execution failed" });
   }
 });
 
 app.get("/api/sessions/:id", (req, res) => {
+  const idCheck = validateSessionId(req.params.id);
+  if (!idCheck.valid) return res.status(400).json({ error: idCheck.error });
+
   const session = sesi.sessions.get(req.params.id);
   if (!session) return res.status(404).json({ error: "Session not found" });
   res.json({
@@ -876,10 +966,30 @@ app.get("/api/trust", (req, res) => {
 });
 
 app.get("/api/decompose", (req, res) => {
-  const { task } = req.query;
-  if (!task) return res.status(400).json({ error: "task query param required" });
-  res.json(decomposeTask(task));
+  const taskCheck = validateTaskInput(req.query?.task);
+  if (!taskCheck.valid) return res.status(400).json({ error: taskCheck.error });
+  res.json(decomposeTask(taskCheck.sanitized));
 });
+
+// Cost tracking endpoint
+app.get("/api/costs", (req, res) => {
+  res.json(costTracker.getGlobalStats());
+});
+
+app.get("/api/costs/:sessionId", (req, res) => {
+  const stats = costTracker.getSessionStats(req.params.sessionId);
+  if (!stats) return res.status(404).json({ error: "No cost data for session" });
+  res.json(stats);
+});
+
+// Session history endpoint
+app.get("/api/history", (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  res.json(persistence.listSessions(limit));
+});
+
+// Error handler (must be last middleware)
+app.use(errorHandler());
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  WEBSOCKET — real-time streaming to spectators
@@ -1133,21 +1243,29 @@ render();init();
 // ═══════════════════════════════════════════════════════════════════════════
 
 server.listen(PORT, () => {
+  const model = process.env.SESI_MODEL || "claude-sonnet-4-20250514";
+  log.info(`SESI Protocol v2.1 started on port ${PORT}`, {
+    agents: Object.keys(AGENT_DEFS).length,
+    model,
+    trustRestored: !!savedTrust,
+  });
   console.log(`
   ╔══════════════════════════════════════════════════════╗
-  ║   🧬 SESI PROTOCOL — Agent Swarm Server v2          ║
+  ║   🧬 SESI PROTOCOL — Agent Swarm Server v2.1        ║
   ║   Stigmergic Epistemic Swarm Intelligence            ║
   ║                                                      ║
   ║   Local:   http://localhost:${PORT}                    ║
   ║   Status:  Ready                                     ║
   ║   Agents:  ${Object.keys(AGENT_DEFS).length} active                                ║
-  ║   Model:   Claude Sonnet                             ║
+  ║   Model:   ${model.padEnd(38)}║
   ║   Algorithm: SESI (Pheromone + Trust + Entropy)      ║
   ║                                                      ║
-  ║   Pillars:                                           ║
-  ║     1. Stigmergic Pheromone Trail                    ║
-  ║     2. Bayesian Epistemic Trust                      ║
-  ║     3. Entropic Task Decomposition                   ║
+  ║   Features:                                          ║
+  ║     + Trust persistence (survives restarts)          ║
+  ║     + Cost tracking per session                      ║
+  ║     + API retry with exponential backoff             ║
+  ║     + Input validation & rate limiting               ║
+  ║     + Structured logging                             ║
   ╚══════════════════════════════════════════════════════╝
   `);
 });
