@@ -1237,12 +1237,17 @@ body{background:#0a0a1a;color:#e0e0e0;font-family:'Inter',system-ui,-apple-syste
 .complete-banner .sub{font-size:10px;color:#666;margin-top:3px}
 .metrics{display:flex;gap:12px;justify-content:center;margin-top:6px;flex-wrap:wrap}
 .metric{font-size:9px;color:#888}.metric span{color:#10B981;font-weight:600}
+
+.final-output{margin:12px 0;text-align:left;background:#0a0a1a;border:1px solid #10B98130;border-radius:10px;overflow:hidden}
+.final-output-header{padding:10px 14px;background:#10B98110;border-bottom:1px solid #10B98120;display:flex;align-items:center;gap:8px}
+.final-output-header .label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1px}
+.final-output-body{padding:14px 16px;font-size:11px;color:#c8d6e5;line-height:1.6;max-height:500px;overflow-y:auto}
 </style>
 </head>
 <body>
 <div class="app" id="app"></div>
 <script>
-const state={sessionId:null,ws:null,connected:false,running:false,agents:{},activeAgents:new Set(),busyAgents:new Set(),agentActions:{},agentStreams:{},messageCounts:{},log:[],phase:null,decomposition:null,trustProfile:{},trailStats:null,metrics:null,completedSteps:0,totalSteps:0,taskCount:0};
+const state={sessionId:null,ws:null,connected:false,running:false,agents:{},activeAgents:new Set(),busyAgents:new Set(),agentActions:{},agentStreams:{},messageCounts:{},log:[],phase:null,decomposition:null,trustProfile:{},trailStats:null,metrics:null,finalOutput:null,completedSteps:0,totalSteps:0,taskCount:0};
 const PC={decomposing:"#8B5CF6",discovery:"#3B82F6",architecture:"#D97706",execution:"#10B981",verification:"#EF4444",verifying:"#EF4444",synthesis:"#8B5CF6"};
 
 async function init(){
@@ -1256,7 +1261,7 @@ async function init(){
 function handle(m){
   switch(m.type){
     case "connected":m.data.agents.forEach(a=>{state.agents[a.id]=a});state.trustProfile=m.data.trustProfile||{};scheduleRender();break;
-    case "swarm_start":state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;scheduleRender();break;
+    case "swarm_start":state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.finalOutput=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;scheduleRender();break;
     case "phase_change":state.phase=m.data;scheduleRender();break;
     case "decomposition_complete":state.decomposition=m.data;state.totalSteps=m.data.activeDomains.length+2;scheduleRender();break;
     case "trust_routing":state.log.push({type:"routing",...m.data,time:ts()});scheduleRender();break;
@@ -1264,7 +1269,7 @@ function handle(m){
     case "agent_start":state.activeAgents.add(m.data.agentId);state.busyAgents.add(m.data.agentId);state.agentActions[m.data.agentId]=m.data.task?.slice(0,80)+"...";state.agentStreams[m.data.agentId]="";state.messageCounts[m.data.agentId]=(state.messageCounts[m.data.agentId]||0)+1;scheduleRender();break;
     case "agent_token":state.agentStreams[m.data.agentId]=(state.agentStreams[m.data.agentId]||"")+m.data.token;state.agentActions[m.data.agentId]=state.agentStreams[m.data.agentId].slice(-120);updateAgentToken(m.data.agentId);break;
     case "agent_complete":state.busyAgents.delete(m.data.agentId);state.agentActions[m.data.agentId]=null;state.agentStreams[m.data.agentId]="";state.completedSteps++;state.log.push({agentId:m.data.agentId,name:m.data.name,output:m.data.output,artifactType:m.data.artifactType,domain:m.data.domain,confidence:m.data.confidence,pheromone:m.data.pheromone,time:ts(),agent:state.agents[m.data.agentId]});scheduleRender();break;
-    case "swarm_complete":state.running=false;state.phase=null;state.metrics=m.data.metrics;state.taskCount++;scheduleRender();break;
+    case "swarm_complete":state.running=false;state.phase=null;state.metrics=m.data.metrics;state.finalOutput=m.data.finalOutput||null;state.taskCount++;scheduleRender();break;
   }
 }
 
@@ -1366,7 +1371,8 @@ function render(){
               <div class="output">\${md((e.output||"").slice(0,4000))}</div></div></div>\`;
             }).join("")}
             \${!state.running&&state.metrics?\`<div class="complete-banner"><div class="title">SESI task complete</div><div class="sub">\${state.metrics.agentCalls} agent calls · \${state.metrics.pheromoneTrail?.total||0} artifacts · trust updated</div>
-            <div class="metrics"><div class="metric">Duration: <span>\${(state.metrics.duration/1000).toFixed(1)}s</span></div><div class="metric">Domains: <span>\${state.metrics.decomposition?.activeDomains||0}</span></div><div class="metric">Phases: <span>\${state.metrics.decomposition?.phases||0}</span></div><div class="metric">Tokens: <span>~\${state.metrics.tokensEstimate}</span></div></div></div>\`:""}\`}
+            <div class="metrics"><div class="metric">Duration: <span>\${(state.metrics.duration/1000).toFixed(1)}s</span></div><div class="metric">Domains: <span>\${state.metrics.decomposition?.activeDomains||0}</span></div><div class="metric">Phases: <span>\${state.metrics.decomposition?.phases||0}</span></div><div class="metric">Tokens: <span>~\${state.metrics.tokensEstimate}</span></div></div></div>
+            \${state.finalOutput?\`<div class="final-output"><div class="final-output-header"><span style="font-size:16px">📋</span><span class="label">Final Deliverable</span></div><div class="final-output-body">\${md(state.finalOutput)}</div></div>\`:""}\`:""}\`}
         </div>
       </div>
     </div>\`;
