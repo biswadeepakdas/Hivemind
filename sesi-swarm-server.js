@@ -24,18 +24,45 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import cors from "cors";
+import { createLogger } from "./scripts/lib/logger.js";
+import { withRetry } from "./scripts/lib/retry.js";
+import { CostTracker } from "./scripts/lib/cost-tracker.js";
+import { TrustPersistence } from "./scripts/lib/persistence.js";
+import { validateTaskInput, validateSessionId, rateLimit, requireApiKey, errorHandler } from "./scripts/lib/validate-input.js";
+import { CircuitBreaker } from "./scripts/lib/circuit-breaker.js";
 
 dotenv.config();
 
+const log = createLogger("Server");
+const engineLog = createLogger("SESIEngine");
+const trailLog = createLogger("PheromoneTrail");
+const trustLog = createLogger("TrustModel");
+
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(rateLimit({ windowMs: 60000, maxRequests: 120 }));
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3000;
+
+// Validate API key at startup
+if (!process.env.ANTHROPIC_API_KEY) {
+  log.warn("ANTHROPIC_API_KEY not set — API calls will fail");
+}
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Initialize cost tracker, persistence, and circuit breaker
+const costTracker = new CostTracker();
+const persistence = new TrustPersistence();
+const circuitBreaker = new CircuitBreaker({
+  failureThreshold: 5,
+  resetTimeout: 30000,
+  halfOpenMax: 1,
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  SESI PILLAR 1: Pheromone Trail (Stigmergic Knowledge Environment)
@@ -127,6 +154,40 @@ class PheromoneTrail {
       byType[a.artifactType] = (byType[a.artifactType] || 0) + 1;
     });
     return { total, strong, avgPheromone, byType };
+  }
+
+  /**
+   * Prune low-pheromone artifacts to prevent unbounded growth.
+   * Keeps artifacts above threshold or younger than maxAge ms.
+   * @param {object} options
+   * @param {number} options.minPheromone - Minimum pheromone to survive (default: MIN_PHEROMONE + 0.05)
+   * @param {number} options.maxArtifacts - Hard cap on total artifacts (default: 200)
+   * @param {number} options.maxAge - Max age in ms before pruning eligible (default: 10 min)
+   */
+  prune(options = {}) {
+    const minPh = options.minPheromone ?? (MIN_PHEROMONE + 0.05);
+    const maxArtifacts = options.maxArtifacts ?? 200;
+    const maxAge = options.maxAge ?? 10 * 60 * 1000;
+    const now = Date.now();
+
+    const before = this.artifacts.length;
+
+    // Keep artifacts that are strong enough OR recent enough
+    this.artifacts = this.artifacts.filter(a =>
+      a.pheromone >= minPh || (now - a.timestamp) < maxAge
+    );
+
+    // If still over hard cap, keep only the strongest
+    if (this.artifacts.length > maxArtifacts) {
+      this.artifacts.sort((a, b) => b.pheromone - a.pheromone);
+      this.artifacts = this.artifacts.slice(0, maxArtifacts);
+    }
+
+    const pruned = before - this.artifacts.length;
+    if (pruned > 0) {
+      trailLog.info(`Pruned ${pruned} low-pheromone artifacts`, { before, after: this.artifacts.length });
+    }
+    return pruned;
   }
 
   clear() {
@@ -466,23 +527,73 @@ RECOMMENDATION: [what to fix]`,
   },
 };
 
-// Initialize trust model with agent capabilities
+// Initialize trust model with agent capabilities (load persisted state if available)
 const globalTrustModel = new EpistemicTrustModel();
 for (const [id, def] of Object.entries(AGENT_DEFS)) {
   globalTrustModel.initialize(id, def.capabilities);
+}
+
+// Restore persisted trust model from disk
+const savedTrust = persistence.loadTrustModel();
+if (savedTrust) {
+  globalTrustModel.trust = savedTrust;
+  trustLog.info("Restored trust model from disk", { agents: Object.keys(savedTrust).length });
+} else {
+  trustLog.info("Starting with fresh trust model (no persisted state found)");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  SESI ENGINE — Entropic Decomposition + Trust Routing + Pheromone Trail
 // ═══════════════════════════════════════════════════════════════════════════
 
+const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+const MAX_SESSIONS = 50;
+const SESSION_CLEANUP_INTERVAL = 60 * 1000; // Check every minute
+
 class SESIEngine {
   constructor() {
     this.sessions = new Map();
     this.spectators = new Map();
+
+    // Periodic session eviction
+    this._cleanupTimer = setInterval(() => this._evictStaleSessions(), SESSION_CLEANUP_INTERVAL);
+    if (this._cleanupTimer.unref) this._cleanupTimer.unref(); // Don't keep process alive
+  }
+
+  _evictStaleSessions() {
+    const now = Date.now();
+    let evicted = 0;
+    for (const [id, session] of this.sessions) {
+      const age = now - (session.metrics.startTime || session.createdAt || now);
+      const isComplete = session.status === "complete" || session.status === "error";
+      if (isComplete && age > SESSION_TTL) {
+        this.sessions.delete(id);
+        this.spectators.delete(id);
+        evicted++;
+      }
+    }
+    if (evicted > 0) {
+      engineLog.info(`Evicted ${evicted} stale sessions`, { remaining: this.sessions.size });
+    }
   }
 
   createSession() {
+    // Enforce max session limit — evict oldest completed sessions first
+    if (this.sessions.size >= MAX_SESSIONS) {
+      const completed = [...this.sessions.entries()]
+        .filter(([, s]) => s.status === "complete" || s.status === "error")
+        .sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+
+      if (completed.length > 0) {
+        const [oldId] = completed[0];
+        this.sessions.delete(oldId);
+        this.spectators.delete(oldId);
+        engineLog.info(`Evicted oldest session to make room`, { evicted: oldId, total: this.sessions.size });
+      } else {
+        engineLog.warn("Max sessions reached with no completed sessions to evict", { max: MAX_SESSIONS });
+      }
+    }
+
     const sessionId = randomUUID().slice(0, 8);
     this.sessions.set(sessionId, {
       id: sessionId,
@@ -492,6 +603,7 @@ class SESIEngine {
       log: [],
       decomposition: null,
       agentSelections: [],
+      createdAt: Date.now(),
       metrics: { startTime: null, phaseTimings: {}, agentCalls: 0, tokensEstimate: 0 },
     });
     this.spectators.set(sessionId, new Set());
@@ -531,13 +643,23 @@ class SESIEngine {
       data: { agentId, name: agentDef.name, emoji: agentDef.emoji, role: agentDef.role, color: agentDef.color, task, domain },
     });
 
-    // Build context from pheromone trail (high-strength artifacts only)
+    // Build context from pheromone trail with token-budget-aware windowing
     const trailArtifacts = session.trail.getStrongArtifacts();
-    const trailSummary = trailArtifacts.length > 0
-      ? `\nPHEROMONE TRAIL (${trailArtifacts.length} strong artifacts):\n` +
-        trailArtifacts.slice(0, 8).map(a =>
-          `  [${a.artifactType.toUpperCase()}] by ${a.authorAgent} (pheromone: ${a.pheromone.toFixed(2)}): ${a.content.slice(0, 200)}`
-        ).join("\n")
+    const TOKEN_BUDGET = 3000; // ~3000 tokens for trail context
+    const CHARS_PER_TOKEN = 4;
+    const charBudget = TOKEN_BUDGET * CHARS_PER_TOKEN;
+    let usedChars = 0;
+    const contextArtifacts = [];
+    for (const a of trailArtifacts) {
+      // Prioritize domain-relevant artifacts, then include general ones
+      const contentSlice = a.content.slice(0, 600); // Up from 200
+      const entry = `  [${a.artifactType.toUpperCase()}] by ${a.authorAgent} (pheromone: ${a.pheromone.toFixed(2)}): ${contentSlice}`;
+      if (usedChars + entry.length > charBudget) break;
+      contextArtifacts.push(entry);
+      usedChars += entry.length;
+    }
+    const trailSummary = contextArtifacts.length > 0
+      ? `\nPHEROMONE TRAIL (${contextArtifacts.length}/${trailArtifacts.length} artifacts):\n` + contextArtifacts.join("\n")
       : "";
 
     const trustProfile = globalTrustModel.getCompetence(agentId, domain);
@@ -555,27 +677,50 @@ CONFIDENCE: [0.0-1.0]`,
     }];
 
     let fullResponse = "";
+    const model = process.env.SESI_MODEL || "claude-sonnet-4-20250514";
 
     try {
-      const stream = await anthropic.messages.stream({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: agentDef.systemPrompt,
-        messages,
-      });
+      await circuitBreaker.execute(async () => {
+        await withRetry(async (attempt) => {
+          if (attempt > 0) {
+            engineLog.info(`Retry attempt ${attempt} for agent ${agentId}`, { domain });
+          }
 
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta?.text) {
-          const token = event.delta.text;
-          fullResponse += token;
-          this.broadcast(sessionId, {
-            type: "agent_token",
-            data: { agentId, token, name: agentDef.name },
+          const stream = await anthropic.messages.stream({
+            model,
+            max_tokens: 4096,
+            system: agentDef.systemPrompt,
+            messages,
           });
-        }
-      }
+
+          for await (const event of stream) {
+            if (event.type === "content_block_delta" && event.delta?.text) {
+              const token = event.delta.text;
+              fullResponse += token;
+              this.broadcast(sessionId, {
+                type: "agent_token",
+                data: { agentId, token, name: agentDef.name },
+              });
+            }
+          }
+        }, {
+          maxRetries: 3,
+          baseDelay: 2000,
+          onRetry: (err, attempt, delay) => {
+            engineLog.warn(`Agent ${agentId} call failed, retrying in ${delay}ms`, {
+              attempt, error: err.message, status: err.status,
+            });
+          },
+        });
+      });
     } catch (err) {
-      fullResponse = `[Agent error: ${err.message}]`;
+      if (err.circuitBreakerOpen) {
+        fullResponse = `[Circuit breaker OPEN — API temporarily unavailable. ${err.message}]`;
+        engineLog.warn(`Circuit breaker blocked agent ${agentId}`, { domain, stats: circuitBreaker.getStats() });
+      } else {
+        fullResponse = `[Agent error: ${err.message}]`;
+        engineLog.error(`Agent ${agentId} failed after retries`, { error: err.message, domain });
+      }
       this.broadcast(sessionId, {
         type: "agent_error",
         data: { agentId, error: err.message },
@@ -601,7 +746,18 @@ CONFIDENCE: [0.0-1.0]`,
     }
 
     session.metrics.agentCalls++;
-    session.metrics.tokensEstimate += Math.ceil(fullResponse.length / 4);
+    const estimatedInputTokens = costTracker.estimateTokens(messages[0].content + (agentDef.systemPrompt || ""));
+    const estimatedOutputTokens = costTracker.estimateTokens(fullResponse);
+    session.metrics.tokensEstimate += estimatedInputTokens + estimatedOutputTokens;
+
+    // Track cost
+    costTracker.recordCall(sessionId, {
+      model: process.env.SESI_MODEL || "claude-sonnet-4-20250514",
+      agentId,
+      domain,
+      inputTokens: estimatedInputTokens,
+      outputTokens: estimatedOutputTokens,
+    });
 
     this.broadcast(sessionId, {
       type: "agent_complete",
@@ -713,7 +869,8 @@ CONFIDENCE: [0.0-1.0]`,
         data: { phase: phaseName, label: phaseName.toUpperCase() },
       });
 
-      // For each domain in this phase, select agent by trust and execute
+      // Prepare all domain tasks for this phase, then execute in parallel
+      const domainTasks = [];
       for (const domainInfo of phase.domains) {
         const domain = domainInfo.domain;
 
@@ -748,14 +905,23 @@ CONFIDENCE: [0.0-1.0]`,
         else if (phaseName === "architecture") artifactType = ARTIFACT_TYPES.DECISION;
         else if (phaseName === "verification") artifactType = ARTIFACT_TYPES.CRITIQUE;
 
-        // Execute agent
-        const result = await this.callAgent(
-          sessionId, selection.agent.id,
-          `[${domainInfo.label} domain, entropy: ${domainInfo.entropy.toFixed(2)}] ${taskText}`,
-          domain, artifactType
-        );
+        domainTasks.push({ domainInfo, selection, artifactType });
+      }
 
-        // Queue for verification if exploratory or low confidence
+      // Execute all agents in this phase concurrently
+      const phaseResults = await Promise.all(
+        domainTasks.map(async ({ domainInfo, selection, artifactType }) => {
+          const result = await this.callAgent(
+            sessionId, selection.agent.id,
+            `[${domainInfo.label} domain, entropy: ${domainInfo.entropy.toFixed(2)}] ${taskText}`,
+            domainInfo.domain, artifactType
+          );
+          return { result, selection };
+        })
+      );
+
+      // Queue for verification if exploratory or low confidence
+      for (const { result, selection } of phaseResults) {
         if (selection.isExploratory || result.confidence < CONFIDENCE_THRESHOLD) {
           artifactsToVerify.push({ artifact: result.artifact, isExploratory: selection.isExploratory });
         }
@@ -763,18 +929,21 @@ CONFIDENCE: [0.0-1.0]`,
 
       session.metrics.phaseTimings[phaseName] = Date.now() - phaseStart;
 
-      // Decay pheromone between phases
+      // Decay pheromone and prune zombie artifacts between phases
       session.trail.decay();
+      session.trail.prune();
       phaseIndex++;
     }
 
-    // ── Epistemic Trust Gate: Verify flagged artifacts ────────────
+    // ── Epistemic Trust Gate: Verify flagged artifacts (parallel) ─
     if (artifactsToVerify.length > 0) {
       this.broadcast(sessionId, { type: "phase_change", data: { phase: "verifying", label: "EPISTEMIC TRUST GATE" } });
 
-      for (const { artifact, isExploratory } of artifactsToVerify) {
-        await this.verifyArtifact(sessionId, artifact, isExploratory);
-      }
+      await Promise.all(
+        artifactsToVerify.map(({ artifact, isExploratory }) =>
+          this.verifyArtifact(sessionId, artifact, isExploratory)
+        )
+      );
     }
 
     // ── SYNTHESIS: Combine high-pheromone artifacts ───────────────
@@ -798,6 +967,19 @@ CONFIDENCE: [0.0-1.0]`,
     session.status = "complete";
 
     const totalDuration = Date.now() - session.metrics.startTime;
+
+    // Persist trust model and session data to disk
+    persistence.saveTrustModel(globalTrustModel.trust);
+    persistence.saveSession(sessionId, {
+      task: taskText,
+      status: "complete",
+      metrics: session.metrics,
+      decomposition: session.decomposition,
+      agentSelections: session.agentSelections,
+      trailStats: session.trail.getStats(),
+    });
+    costTracker.persistMetrics(sessionId);
+    engineLog.info("Task complete", { sessionId, duration: totalDuration, agentCalls: session.metrics.agentCalls });
 
     this.broadcast(sessionId, {
       type: "swarm_complete",
@@ -843,25 +1025,46 @@ const sesi = new SESIEngine();
 //  REST API
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Health check endpoint (used by Docker HEALTHCHECK)
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    algorithm: "SESI",
+    version: "2.1.0",
+    uptime: process.uptime(),
+    activeSessions: sesi.sessions.size,
+    circuitBreaker: circuitBreaker.getStats(),
+  });
+});
+
 app.post("/api/sessions", (req, res) => {
   const sessionId = sesi.createSession();
+  log.info("Session created", { sessionId });
   res.json({ sessionId, wsUrl: `/ws/${sessionId}`, algorithm: "SESI" });
 });
 
-app.post("/api/sessions/:id/run", async (req, res) => {
+app.post("/api/sessions/:id/run", requireApiKey(), async (req, res) => {
   const { id } = req.params;
-  const { task } = req.body;
-  if (!task) return res.status(400).json({ error: "task is required" });
+
+  const idCheck = validateSessionId(id);
+  if (!idCheck.valid) return res.status(400).json({ error: idCheck.error });
+
+  const taskCheck = validateTaskInput(req.body?.task);
+  if (!taskCheck.valid) return res.status(400).json({ error: taskCheck.error });
 
   try {
-    const result = await sesi.executeTask(id, task);
+    const result = await sesi.executeTask(id, taskCheck.sanitized);
     res.json({ success: true, ...result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    log.error("Task execution failed", { sessionId: id, error: err.message });
+    res.status(500).json({ error: "Task execution failed" });
   }
 });
 
 app.get("/api/sessions/:id", (req, res) => {
+  const idCheck = validateSessionId(req.params.id);
+  if (!idCheck.valid) return res.status(400).json({ error: idCheck.error });
+
   const session = sesi.sessions.get(req.params.id);
   if (!session) return res.status(404).json({ error: "Session not found" });
   res.json({
@@ -876,10 +1079,30 @@ app.get("/api/trust", (req, res) => {
 });
 
 app.get("/api/decompose", (req, res) => {
-  const { task } = req.query;
-  if (!task) return res.status(400).json({ error: "task query param required" });
-  res.json(decomposeTask(task));
+  const taskCheck = validateTaskInput(req.query?.task);
+  if (!taskCheck.valid) return res.status(400).json({ error: taskCheck.error });
+  res.json(decomposeTask(taskCheck.sanitized));
 });
+
+// Cost tracking endpoint
+app.get("/api/costs", (req, res) => {
+  res.json(costTracker.getGlobalStats());
+});
+
+app.get("/api/costs/:sessionId", (req, res) => {
+  const stats = costTracker.getSessionStats(req.params.sessionId);
+  if (!stats) return res.status(404).json({ error: "No cost data for session" });
+  res.json(stats);
+});
+
+// Session history endpoint
+app.get("/api/history", (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  res.json(persistence.listSessions(limit));
+});
+
+// Error handler (must be last middleware)
+app.use(errorHandler());
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  WEBSOCKET — real-time streaming to spectators
@@ -1133,21 +1356,29 @@ render();init();
 // ═══════════════════════════════════════════════════════════════════════════
 
 server.listen(PORT, () => {
+  const model = process.env.SESI_MODEL || "claude-sonnet-4-20250514";
+  log.info(`SESI Protocol v2.1 started on port ${PORT}`, {
+    agents: Object.keys(AGENT_DEFS).length,
+    model,
+    trustRestored: !!savedTrust,
+  });
   console.log(`
   ╔══════════════════════════════════════════════════════╗
-  ║   🧬 SESI PROTOCOL — Agent Swarm Server v2          ║
+  ║   🧬 SESI PROTOCOL — Agent Swarm Server v2.1        ║
   ║   Stigmergic Epistemic Swarm Intelligence            ║
   ║                                                      ║
   ║   Local:   http://localhost:${PORT}                    ║
   ║   Status:  Ready                                     ║
   ║   Agents:  ${Object.keys(AGENT_DEFS).length} active                                ║
-  ║   Model:   Claude Sonnet                             ║
+  ║   Model:   ${model.padEnd(38)}║
   ║   Algorithm: SESI (Pheromone + Trust + Entropy)      ║
   ║                                                      ║
-  ║   Pillars:                                           ║
-  ║     1. Stigmergic Pheromone Trail                    ║
-  ║     2. Bayesian Epistemic Trust                      ║
-  ║     3. Entropic Task Decomposition                   ║
+  ║   Features:                                          ║
+  ║     + Trust persistence (survives restarts)          ║
+  ║     + Cost tracking per session                      ║
+  ║     + API retry with exponential backoff             ║
+  ║     + Input validation & rate limiting               ║
+  ║     + Structured logging                             ║
   ╚══════════════════════════════════════════════════════╝
   `);
 });
