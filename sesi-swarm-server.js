@@ -1500,18 +1500,18 @@ function md(s){
     .replace(/^### (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#c4b5fd;margin:8px 0 4px">$1</div>')
     .replace(/^## (.+)$/gm,'<div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:10px 0 5px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:4px">$1</div>')
     .replace(/^# (.+)$/gm,'<div style="font-size:14px;font-weight:800;color:#fff;margin:12px 0 6px">$1</div>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#f0f0f0">$1</strong>')
+    .replace(/\\*\\*(.+?)\\*\\*/g,'<strong style="color:#f0f0f0">$1</strong>')
     .replace(/^- (.+)$/gm,'<div style="padding-left:12px;margin:2px 0"><span style="color:#8B5CF6;margin-right:5px">&#8226;</span>$1</div>')
-    .replace(/\n/g,'<br>');
+    .replace(/\\n/g,'<br>');
 }
 function parseFiles(s){
   if(!s)return[];
-  var parts=s.split(/\/\/ FILE: |# FILE: /);
+  var parts=s.split(/\\/\\/ FILE: |# FILE: /);
   var files=[];
   for(var i=1;i<parts.length;i++){
-    var lines=parts[i].split('\n');
+    var lines=parts[i].split('\\n');
     var name=lines[0].trim();
-    var code=lines.slice(1).join('\n').trim();
+    var code=lines.slice(1).join('\\n').trim();
     if(name&&code)files.push({name:name,code:code});
   }
   return files;
@@ -1534,7 +1534,7 @@ function copyFile(i){
 function downloadAll(){
   var files=parseFiles(state.finalOutput);
   if(files.length===0)return;
-  var text=files.map(function(f){return '// FILE: '+f.name+'\n'+f.code}).join('\n\n');
+  var text=files.map(function(f){return '// FILE: '+f.name+'\\n'+f.code}).join('\\n\\n');
   var blob=new Blob([text],{type:'text/plain'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='hivemind-project.txt';a.click();URL.revokeObjectURL(a.href);
