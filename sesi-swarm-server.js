@@ -289,31 +289,37 @@ class EpistemicTrustModel {
 const KNOWLEDGE_DOMAINS = {
   requirements: {
     label: "Requirements",
-    keywords: ["need", "want", "should", "must", "feature", "user", "story", "requirement", "goal", "objective", "specification", "scope", "criteria"],
+    keywords: ["need", "want", "should", "must", "feature", "user", "story", "requirement", "goal", "objective", "specification", "scope", "criteria", "build", "create", "develop", "make"],
     phase: "discovery",
     order: 1,
   },
   architecture: {
     label: "Architecture",
-    keywords: ["architecture", "design", "system", "pattern", "structure", "service", "microservice", "monolith", "serverless", "distributed", "scale", "event", "domain", "cqrs", "saga", "gateway", "mesh", "cloud", "container", "docker", "kubernetes", "saas", "platform", "mvp", "full stack", "fullstack", "migrate", "modernize", "legacy"],
+    keywords: ["architecture", "design", "system", "pattern", "structure", "service", "microservice", "monolith", "serverless", "distributed", "scale", "event", "domain", "cqrs", "saga", "gateway", "mesh", "cloud", "container", "docker", "kubernetes", "saas", "platform", "mvp", "full stack", "fullstack", "migrate", "modernize", "legacy", "build", "create", "develop", "implement", "app", "application", "project", "startup", "tool", "solution", "software"],
     phase: "architecture",
     order: 2,
   },
   frontend: {
     label: "Frontend",
-    keywords: ["ui", "frontend", "component", "page", "react", "vue", "html", "css", "responsive", "animation", "dashboard", "widget", "layout", "button", "form", "modal", "chart", "landing", "website", "web", "interface", "display", "visual", "interactive"],
+    keywords: ["ui", "frontend", "component", "page", "react", "vue", "html", "css", "responsive", "animation", "dashboard", "widget", "layout", "button", "form", "modal", "chart", "landing", "website", "web", "interface", "display", "visual", "interactive", "next.js", "nextjs", "tailwind", "svelte", "angular"],
     phase: "execution",
     order: 3,
   },
   backend: {
     label: "Backend",
-    keywords: ["api", "backend", "server", "database", "endpoint", "rest", "graphql", "auth", "middleware", "route", "schema", "migration", "query", "sql", "cache", "queue", "webhook", "lambda", "function", "pipeline", "socket", "grpc"],
+    keywords: ["api", "backend", "server", "database", "endpoint", "rest", "graphql", "auth", "middleware", "route", "schema", "migration", "query", "sql", "cache", "queue", "webhook", "lambda", "function", "pipeline", "socket", "grpc", "build", "create", "develop", "app", "application", "crud", "login", "signup", "payment", "user", "management", "mongo", "postgres", "mysql", "redis", "express", "fastapi", "django", "flask", "node"],
+    phase: "execution",
+    order: 3,
+  },
+  aiml: {
+    label: "AI/ML",
+    keywords: ["ai", "ml", "machine learning", "deep learning", "neural", "model", "training", "inference", "nlp", "computer vision", "transformer", "embedding", "vector", "rag", "fine-tune", "dataset", "classification", "regression", "clustering", "llm", "gpt", "bert", "pytorch", "tensorflow", "scikit", "pandas", "numpy", "langchain", "openai", "anthropic", "huggingface", "diffusion", "gan", "cnn", "rnn", "lstm", "attention", "tokenizer", "prompt", "chatbot", "recommendation", "sentiment", "prediction", "autonomous"],
     phase: "execution",
     order: 3,
   },
   infrastructure: {
     label: "Infrastructure",
-    keywords: ["deploy", "devops", "docker", "ci/cd", "terraform", "aws", "gcp", "azure", "monitoring", "logging", "infrastructure", "config", "environment", "kubernetes", "container"],
+    keywords: ["deploy", "devops", "docker", "ci/cd", "terraform", "aws", "gcp", "azure", "monitoring", "logging", "infrastructure", "config", "environment", "kubernetes", "container", "build", "create", "app", "application"],
     phase: "execution",
     order: 3,
   },
@@ -325,7 +331,7 @@ const KNOWLEDGE_DOMAINS = {
   },
   quality: {
     label: "Quality",
-    keywords: ["review", "test", "quality", "security", "audit", "verify", "validate", "bug", "lint", "fix", "optimize", "performance", "benchmark"],
+    keywords: ["review", "test", "quality", "security", "audit", "verify", "validate", "bug", "lint", "fix", "optimize", "performance", "benchmark", "build", "create", "develop", "api", "app", "code"],
     phase: "verification",
     order: 4,
   },
@@ -401,17 +407,31 @@ const AGENT_DEFS = {
     capabilities: ["decomposition", "synthesis", "routing"],
     systemPrompt: `You are Nexus, the orchestrator of the SESI multi-agent swarm.
 
-Your job: You receive a task that has already been decomposed by the SESI entropic decomposition engine. You will be given:
-- The entropy analysis (which domains are uncertain)
-- The pheromone trail (what knowledge artifacts exist so far)
-- The trust-selected agents for each domain
+Your PRIMARY job is to SYNTHESIZE all agent artifacts into a COMPLETE, RUNNABLE project that the user can download and use immediately.
 
-Your role is to:
-1. Provide additional context or constraints the decomposition may have missed
-2. When asked to synthesize: combine all high-pheromone artifacts into a cohesive deliverable
-3. Assess whether the pheromone trail is complete or needs more artifacts
+When synthesizing:
+1. Combine all IMPLEMENTATION artifacts into a structured file-by-file project
+2. Mark each file with: // FILE: path/filename.ext
+3. Every file must be COMPLETE — no placeholders, no "// TODO", no "..." truncation
+4. Include package.json / requirements.txt with exact dependency versions
+5. Include a README.md with setup instructions (npm install, how to run, API endpoints)
+6. Ensure all imports reference correct relative paths between files
+7. Ensure consistency across all files (shared types, matching API routes, etc.)
 
-Output clear, actionable guidance. When synthesizing, create a polished final deliverable — NOT a summary of what agents did.`,
+OUTPUT FORMAT — you MUST follow this exactly:
+// FILE: package.json
+{ complete JSON }
+
+// FILE: src/index.js
+complete code...
+
+// FILE: README.md
+complete markdown...
+
+NEVER output prose summaries. NEVER describe what code does. Output the ACTUAL CODE FILES only.
+The user must be able to take your output, save each file, and run the project with zero modifications.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   researcher: {
@@ -419,45 +439,58 @@ Output clear, actionable guidance. When synthesizing, create a polished final de
     capabilities: ["requirements", "architecture", "content", "quality"],
     systemPrompt: `You are Scout, the research agent in the SESI swarm.
 
-Your job: Deposit EVIDENCE artifacts into the pheromone trail. Gather information, analyze options, find best practices, and provide data-backed context.
+Your job: Research and specify CONCRETE technical requirements that other agents will implement as real code.
 
-You will receive:
-- The pheromone trail context (high-strength artifacts from other agents)
-- Your assigned domain and specific task
+Output as a structured specification:
+1. TECH STACK: Exact libraries/frameworks with versions (e.g., express@4.18.2, not just "Express")
+2. API SPEC: List every endpoint with method, path, request/response types
+3. DATA MODEL: Exact field names, types, relationships for every entity
+4. DEPENDENCIES: Full list of npm/pip packages needed
+5. FILE STRUCTURE: Proposed directory tree with every file listed
 
-Output format: Structured findings with clear reasoning. Rate your confidence (0-1) in your findings. Flag uncertainties as HYPOTHESIS artifacts, confirmed findings as EVIDENCE artifacts.`,
+Be SPECIFIC. Other agents will write code based on your spec. Vague specs = broken code.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   planner: {
     id: "planner", name: "Architect", emoji: "📐", role: "Planning Agent", color: "#F59E0B",
-    capabilities: ["requirements", "architecture", "frontend", "backend"],
+    capabilities: ["requirements", "architecture", "frontend", "backend", "aiml"],
     systemPrompt: `You are Architect, the planning agent in the SESI swarm.
 
-Your job: Deposit DECISION artifacts — structured plans, execution strategies, and task breakdowns.
+Your job: Create a CONCRETE implementation plan that coding agents will follow to produce real, runnable code.
 
-Read existing pheromone trail artifacts (especially EVIDENCE and HYPOTHESIS) before making decisions. Your plans should BUILD ON prior artifacts, reinforcing strong ones and challenging weak ones.
+Output format:
+1. FILE TREE: Every file that needs to be created, with its purpose
+2. INTERFACES: Exact function signatures, API contracts, type definitions
+3. DATA FLOW: How data moves between components (with actual variable/field names)
+4. DEPENDENCIES: package.json / requirements.txt contents with exact versions
+5. EXECUTION ORDER: Which files to implement first (dependency order)
 
-Output format: Structured plan with dependencies and success criteria. Rate your confidence (0-1).`,
+Read existing EVIDENCE artifacts from the trail. Your plan must be specific enough that a coder can implement each file without guessing.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   senior_architect: {
     id: "senior_architect", name: "Sage", emoji: "🏛️", role: "Senior Architect", color: "#D97706",
-    capabilities: ["architecture", "infrastructure", "backend"],
+    capabilities: ["architecture", "infrastructure", "backend", "aiml"],
     systemPrompt: `You are Sage, the senior architect in the SESI swarm.
 
-Your job: Deposit DECISION artifacts with deep trade-off reasoning. You produce Architecture Decision Records (ADRs).
+Your job: Make architecture DECISIONS that result in working code. Not theory — practical choices.
 
-REASONING PROCESS:
-1. Read pheromone trail — identify existing HYPOTHESIS and EVIDENCE artifacts
-2. Identify constraints and quality attributes
-3. Enumerate candidate architectures (at least 3)
-4. Build a trade-off matrix
-5. Select optimal architecture with justification
-6. Produce ADR with component boundaries and risk mitigation
+For every decision, output:
+1. CHOSEN APPROACH with specific library/framework versions
+2. FILE STRUCTURE showing exact filenames and directory layout
+3. KEY INTERFACES — actual TypeScript/JSDoc type definitions or Python type hints
+4. DATABASE SCHEMA — actual CREATE TABLE / schema definition code
+5. CONFIG FILES — actual .env.example, docker-compose.yml, etc.
 
-You may deposit CRITIQUE artifacts that CHALLENGE other agents' artifacts if you see flaws. When you challenge, the challenged artifact's pheromone decreases.
+Write these as actual code snippets that coding agents will use directly. Use // FILE: markers.
 
-Rate your confidence (0-1) for each decision.`,
+You may CHALLENGE other agents' artifacts if you spot issues that would cause runtime errors.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   coder_frontend: {
@@ -465,9 +498,28 @@ Rate your confidence (0-1) for each decision.`,
     capabilities: ["frontend"],
     systemPrompt: `You are Bolt, the frontend coding agent in the SESI swarm.
 
-Your job: Deposit IMPLEMENTATION artifacts — production-quality frontend code. Read DECISION artifacts from the trail to follow architectural guidance.
+Your job: Write COMPLETE, PRODUCTION-READY frontend code files. Every file must be fully functional.
 
-Output: Clean, well-commented code. Reference which DECISION artifacts you're implementing. Rate your confidence (0-1).`,
+RULES:
+1. Mark each file with: // FILE: path/filename.ext
+2. Every file must be COMPLETE — no "..." or "// add more here" or placeholders
+3. Include ALL imports, ALL components, ALL styling
+4. Handle loading states, error states, and edge cases
+5. Include proper form validation
+6. Use responsive design
+7. Follow DECISION artifacts from the trail for architecture choices
+
+Output ONLY code files. No explanations, no prose. Just:
+// FILE: src/App.jsx
+import React from 'react';
+// ... complete component code
+
+// FILE: src/components/Header.jsx
+// ... complete component code
+
+The user will save these files and run the project. If ANY file is incomplete, the project breaks.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   coder_backend: {
@@ -475,19 +527,81 @@ Output: Clean, well-commented code. Reference which DECISION artifacts you're im
     capabilities: ["backend", "infrastructure"],
     systemPrompt: `You are Forge, the backend coding agent in the SESI swarm.
 
-Your job: Deposit IMPLEMENTATION artifacts — APIs, database schemas, server logic. Read DECISION and EVIDENCE artifacts from the trail.
+Your job: Write COMPLETE, PRODUCTION-READY backend code. Every file must be fully functional with zero errors.
 
-Output: Clean, well-structured code with security considerations. Rate your confidence (0-1).`,
+RULES:
+1. Mark each file with: // FILE: path/filename.ext
+2. Every file must be COMPLETE — no truncation, no placeholders, no "..."
+3. Include ALL route handlers with full request validation and error handling
+4. Include database models/schemas with migrations
+5. Include authentication middleware if auth is needed
+6. Include proper error responses (not just 500)
+7. Include input sanitization and security headers
+8. Follow DECISION artifacts from the trail for architecture choices
+
+Output ONLY code files:
+// FILE: src/server.js
+const express = require('express');
+// ... complete server code with all routes
+
+// FILE: src/models/User.js
+// ... complete model code
+
+The user will install dependencies, run the server, and it MUST work on first try.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   coder_systems: {
     id: "coder_systems", name: "Core", emoji: "🔩", role: "Systems Coder", color: "#A855F7",
     capabilities: ["infrastructure", "backend", "quality"],
-    systemPrompt: `You are Core, the systems coding agent in the SESI swarm.
+    systemPrompt: `You are Core, the systems/infrastructure coding agent in the SESI swarm.
 
-Your job: Deposit IMPLEMENTATION artifacts — algorithms, DevOps configs, CI/CD pipelines, infrastructure code.
+Your job: Write COMPLETE infrastructure, DevOps, and utility code files.
 
-Output: Production-ready configs and scripts. Rate your confidence (0-1).`,
+RULES:
+1. Mark each file with: // FILE: path/filename.ext
+2. Write complete Dockerfiles, docker-compose.yml, CI/CD configs
+3. Write complete utility modules (validation, auth helpers, middleware)
+4. Write complete test files with actual test cases
+5. Write .env.example with all required environment variables documented
+6. No placeholders. Every config must be valid and runnable.
+
+Output ONLY code files with // FILE: markers.
+
+CONFIDENCE: [0.0-1.0]`,
+  },
+
+  coder_aiml: {
+    id: "coder_aiml", name: "Neuron", emoji: "🧪", role: "AI/ML Engineer", color: "#FF6B6B",
+    capabilities: ["aiml", "backend"],
+    systemPrompt: `You are Neuron, the senior AI/ML engineering agent in the SESI swarm.
+
+Your job: Write COMPLETE, PRODUCTION-READY AI/ML code. Every file must work out of the box.
+
+RULES:
+1. Mark each file with: // FILE: path/filename.ext (or # FILE: for Python)
+2. Write complete model training scripts, inference APIs, data pipelines
+3. Include proper data preprocessing with error handling
+4. Include model evaluation metrics and logging
+5. Include requirements.txt with pinned versions (torch==2.1.0, not just torch)
+6. If using APIs (OpenAI, Anthropic, HuggingFace), include complete client setup
+7. Include proper error handling for API rate limits, timeouts, model failures
+8. Write complete integration code to connect ML components with the backend
+
+For LLM/RAG applications:
+- Include complete prompt engineering with system prompts
+- Include embedding generation and vector store setup
+- Include retrieval and generation pipelines
+
+For traditional ML:
+- Include complete training loops with checkpointing
+- Include inference endpoints with input validation
+- Include model serialization (pickle/ONNX/safetensors)
+
+Output ONLY code files. No explanations.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   writer: {
@@ -495,35 +609,50 @@ Output: Production-ready configs and scripts. Rate your confidence (0-1).`,
     capabilities: ["content", "requirements"],
     systemPrompt: `You are Quill, the writing agent in the SESI swarm.
 
-Your job: Deposit IMPLEMENTATION artifacts — documentation, blog posts, copy, emails, READMEs.
+Your job: Write COMPLETE documentation files that are part of the project deliverable.
 
-Read the pheromone trail for EVIDENCE and DECISION artifacts to inform your writing. Your content should accurately reflect what other agents have determined.
+RULES:
+1. Mark each file with: // FILE: path/filename.ext
+2. README.md must include: project description, prerequisites, installation steps, usage examples, API documentation, environment variables
+3. API docs must list every endpoint with request/response examples
+4. Include CONTRIBUTING.md if applicable
+5. Write actual .env.example files with documented variables
+6. For content tasks (blog posts, copy): output the complete final content, not a draft or outline
 
-Output: Polished, well-structured prose. Rate your confidence (0-1).`,
+Output ONLY files with // FILE: markers. No meta-commentary.
+
+CONFIDENCE: [0.0-1.0]`,
   },
 
   reviewer: {
     id: "reviewer", name: "Sentinel", emoji: "🛡️", role: "Review Agent", color: "#EF4444",
     capabilities: ["quality"],
-    systemPrompt: `You are Sentinel, the review agent and EPISTEMIC TRUST GATE in the SESI swarm.
+    systemPrompt: `You are Sentinel, the code review agent and EPISTEMIC TRUST GATE in the SESI swarm.
 
-Your job is CRITICAL — you determine whether artifacts pass quality gates. Your verdicts update the Bayesian trust model:
-- APPROVE: The author agent's trust score increases (alpha += 1)
-- REJECT: The author agent's trust score decreases (beta += 1)
+Your job is CRITICAL — you review code artifacts for correctness and completeness. Your verdicts update the Bayesian trust model.
 
-For each artifact you review:
-1. Check for correctness, completeness, security, and consistency
-2. Rate severity of any issues (critical/major/minor)
-3. Give a clear APPROVE or REJECT verdict
-4. If rejecting, deposit a CRITIQUE artifact that challenges the original
+Review checklist:
+1. SYNTAX: Will the code parse without errors?
+2. IMPORTS: Are all imports valid and do referenced modules exist?
+3. LOGIC: Are there runtime errors, null pointer issues, or infinite loops?
+4. COMPLETENESS: Are there any "..." placeholders, TODOs, or truncated code?
+5. SECURITY: SQL injection, XSS, hardcoded secrets, missing auth?
+6. CONSISTENCY: Do API routes match what the frontend calls? Do types match?
+7. DEPS: Are all npm/pip packages in package.json/requirements.txt?
+8. CONFIG: Is .env.example complete? Are all env vars documented?
 
-You may also CHALLENGE architectural decisions by depositing CRITIQUE artifacts against DECISION artifacts.
+If you find ANY issue that would prevent the code from running:
+- REJECT the artifact
+- List every specific error with line references
+- Provide the FIXED code for each issue
 
 Output format:
 VERDICT: [APPROVE/REJECT]
 QUALITY_SCORE: [0-100]
-ISSUES: [list of issues with severity]
-RECOMMENDATION: [what to fix]`,
+ISSUES: [specific code errors with fixes]
+FIXED_CODE: [corrected code if rejecting]
+
+CONFIDENCE: [0.0-1.0]`,
   },
 };
 
@@ -652,7 +781,7 @@ class SESIEngine {
     const contextArtifacts = [];
     for (const a of trailArtifacts) {
       // Prioritize domain-relevant artifacts, then include general ones
-      const contentSlice = a.content.slice(0, 600); // Up from 200
+      const contentSlice = a.content.slice(0, 2000); // Show more code context to agents
       const entry = `  [${a.artifactType.toUpperCase()}] by ${a.authorAgent} (pheromone: ${a.pheromone.toFixed(2)}): ${contentSlice}`;
       if (usedChars + entry.length > charBudget) break;
       contextArtifacts.push(entry);
@@ -688,7 +817,7 @@ CONFIDENCE: [0.0-1.0]`,
 
           const stream = await anthropic.messages.stream({
             model,
-            max_tokens: 4096,
+            max_tokens: 8192,
             system: agentDef.systemPrompt,
             messages,
           });
@@ -733,7 +862,7 @@ CONFIDENCE: [0.0-1.0]`,
 
     // Deposit artifact to pheromone trail
     const artifact = session.trail.deposit({
-      content: fullResponse.slice(0, 2000),
+      content: fullResponse.slice(0, 8000),
       authorAgent: agentId,
       artifactType: artifactType || ARTIFACT_TYPES.IMPLEMENTATION,
       domain,
@@ -951,12 +1080,23 @@ CONFIDENCE: [0.0-1.0]`,
 
     const strongArtifacts = session.trail.getStrongArtifacts();
     const trailSummary = strongArtifacts.map(a =>
-      `[${a.artifactType.toUpperCase()} | pheromone: ${a.pheromone.toFixed(2)} | by ${a.authorAgent}]\n${a.content.slice(0, 800)}`
+      `[${a.artifactType.toUpperCase()} | pheromone: ${a.pheromone.toFixed(2)} | by ${a.authorAgent}]\n${a.content.slice(0, 3000)}`
     ).join("\n\n---\n\n");
 
     const synthesis = await this.callAgent(
       sessionId, "orchestrator",
-      `Synthesize all high-pheromone artifacts into a final, cohesive deliverable for: "${taskText}"\n\nDo NOT output JSON. Write the actual polished deliverable.`,
+      `SYNTHESIZE all agent artifacts into a COMPLETE, RUNNABLE project for: "${taskText}"
+
+INSTRUCTIONS:
+1. Combine all IMPLEMENTATION artifacts into one structured output
+2. Use // FILE: path/filename.ext markers to separate each file
+3. Every file must be COMPLETE - no placeholders, no TODO, no truncation
+4. Include package.json/requirements.txt with pinned dependency versions
+5. Include README.md with exact setup and run instructions
+6. Fix any inconsistencies between files (imports, routes, types)
+7. The user must be able to save these files and run the project immediately
+
+Output ONLY the code files. NO prose, NO summaries, NO explanations.`,
       "synthesis",
       ARTIFACT_TYPES.SYNTHESIS,
       `HIGH-PHEROMONE ARTIFACTS (${strongArtifacts.length}):\n\n${trailSummary}`
@@ -1309,7 +1449,17 @@ body{background:#080818;color:#e0e0e0;font-family:'Inter',system-ui,sans-serif;o
 .final-output{text-align:left;background:rgba(16,185,129,.02);border:1px solid rgba(16,185,129,.1);border-radius:14px;overflow:hidden;animation:fadeIn .5s ease}
 .fo-header{padding:12px 16px;background:rgba(16,185,129,.05);border-bottom:1px solid rgba(16,185,129,.08);display:flex;align-items:center;gap:10px}
 .fo-header .fo-label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1.5px}
-.fo-body{padding:16px 18px;font-size:12px;color:#c8d6e5;line-height:1.7;max-height:400px;overflow-y:auto}
+.fo-body{padding:16px 18px;font-size:12px;color:#c8d6e5;line-height:1.7;max-height:500px;overflow-y:auto}
+.file-card{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.file-card-head{padding:8px 12px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px}
+.file-card-head .fname{font-size:11px;font-weight:700;color:#10B981;font-family:'JetBrains Mono',monospace;flex:1}
+.file-card-head button{padding:3px 10px;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);font-size:9px;cursor:pointer;font-family:inherit;transition:all .2s}
+.file-card-head button:hover{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#10B981}
+.file-card-code{padding:12px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;line-height:1.6;color:#c8d6e5;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;tab-size:2}
+.dl-bar{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(16,185,129,.08)}
+.dl-bar button{padding:8px 18px;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:12px;font-family:inherit;background:linear-gradient(135deg,#10B981,#059669);color:#fff;transition:transform .15s}
+.dl-bar button:hover{transform:translateY(-1px)}
+.dl-bar .dl-info{font-size:10px;color:rgba(255,255,255,.3);margin-left:auto}
 </style>
 </head>
 <body>
@@ -1350,9 +1500,44 @@ function md(s){
     .replace(/^### (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#c4b5fd;margin:8px 0 4px">$1</div>')
     .replace(/^## (.+)$/gm,'<div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:10px 0 5px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:4px">$1</div>')
     .replace(/^# (.+)$/gm,'<div style="font-size:14px;font-weight:800;color:#fff;margin:12px 0 6px">$1</div>')
-    .replace(/\\*\\*(.+?)\\*\\*/g,'<strong style="color:#f0f0f0">$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#f0f0f0">$1</strong>')
     .replace(/^- (.+)$/gm,'<div style="padding-left:12px;margin:2px 0"><span style="color:#8B5CF6;margin-right:5px">&#8226;</span>$1</div>')
-    .replace(/\\n/g,'<br>');
+    .replace(/\n/g,'<br>');
+}
+function parseFiles(s){
+  if(!s)return[];
+  var parts=s.split(/\/\/ FILE: |# FILE: /);
+  var files=[];
+  for(var i=1;i<parts.length;i++){
+    var lines=parts[i].split('\n');
+    var name=lines[0].trim();
+    var code=lines.slice(1).join('\n').trim();
+    if(name&&code)files.push({name:name,code:code});
+  }
+  return files;
+}
+function renderCode(s){
+  var files=parseFiles(s);
+  if(files.length===0)return '<div class="fo-body">'+md(s)+'</div>';
+  var h='<div class="dl-bar"><button onclick="downloadAll()">&#11015; Download All Files</button><span class="dl-info">'+files.length+' file'+(files.length===1?'':'s')+' generated</span></div>';
+  h+='<div class="fo-body">';
+  files.forEach(function(f,i){
+    h+='<div class="file-card"><div class="file-card-head"><span class="fname">'+esc(f.name)+'</span><button onclick="copyFile('+i+')">Copy</button></div><div class="file-card-code" id="fc-'+i+'">'+esc(f.code)+'</div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+function copyFile(i){
+  var el=document.getElementById('fc-'+i);
+  if(el){navigator.clipboard.writeText(el.textContent).then(function(){var btns=document.querySelectorAll('.file-card-head button');if(btns[i]){btns[i].textContent='Copied!';setTimeout(function(){btns[i].textContent='Copy'},1500)}})}
+}
+function downloadAll(){
+  var files=parseFiles(state.finalOutput);
+  if(files.length===0)return;
+  var text=files.map(function(f){return '// FILE: '+f.name+'\n'+f.code}).join('\n\n');
+  var blob=new Blob([text],{type:'text/plain'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='hivemind-project.txt';a.click();URL.revokeObjectURL(a.href);
 }
 
 var renderPending=false;
@@ -1510,7 +1695,7 @@ function render(){
       h+='<div class="cb-metrics"><div class="cb-metric">Duration: <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span></div><div class="cb-metric">Domains: <span>'+(state.metrics.decomposition&&state.metrics.decomposition.activeDomains||0)+'</span></div><div class="cb-metric">Phases: <span>'+(state.metrics.decomposition&&state.metrics.decomposition.phases||0)+'</span></div><div class="cb-metric">Tokens: <span>~'+state.metrics.tokensEstimate+'</span></div></div></div>'
     }
     if(state.finalOutput){
-      h+='<div class="final-output"><div class="fo-header"><span style="font-size:16px">&#128203;</span><span class="fo-label">Final Deliverable</span></div><div class="fo-body">'+md(state.finalOutput)+'</div></div>'
+      h+='<div class="final-output"><div class="fo-header"><span style="font-size:16px">&#128203;</span><span class="fo-label">Final Deliverable</span></div>'+renderCode(state.finalOutput)+'</div>'
     }
     h+='</div>';
   }
