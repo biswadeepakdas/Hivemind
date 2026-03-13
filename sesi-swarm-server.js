@@ -1162,6 +1162,20 @@ body{background:#0a0a1a;color:#e0e0e0;font-family:'Inter',system-ui,-apple-syste
 @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 @keyframes typing{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
 
+/* Kawaii character animations */
+@keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
+@keyframes typing{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+@keyframes typingHands{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-1px) rotate(2deg)}}
+@keyframes screenGlow{0%,100%{opacity:0.6}50%{opacity:1}}
+@keyframes blockDrop{0%{opacity:0;transform:translateY(-20px) scale(0.5)}60%{transform:translateY(2px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes blockShine{0%{left:-100%}100%{left:200%}}
+@keyframes celebrateJump{0%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}60%{transform:translateY(-4px)}}
+@keyframes starPop{0%{opacity:0;transform:scale(0) rotate(0)}50%{opacity:1;transform:scale(1.2) rotate(180deg)}100%{opacity:0;transform:scale(0) rotate(360deg)}}
+@keyframes floatUp{0%{opacity:0;transform:translateY(8px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-4px)}}
+@keyframes blushPulse{0%,100%{opacity:0.4}50%{opacity:0.7}}
+@keyframes laptopType{0%,100%{transform:scaleY(1)}50%{transform:scaleY(0.97)}}
+
 .app{display:flex;height:100vh;flex-direction:column}
 .header{padding:14px 20px;border-bottom:1px solid #1a1a2e;display:flex;align-items:center;gap:12px}
 .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#8B5CF6,#D97706,#10B981);background-size:200% 200%;animation:gradientShift 4s ease infinite;display:flex;align-items:center;justify-content:center;font-size:18px}
@@ -1172,12 +1186,11 @@ body{background:#0a0a1a;color:#e0e0e0;font-family:'Inter',system-ui,-apple-syste
 .phase-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
 
 .main{display:flex;flex:1;overflow:hidden}
-.sidebar{width:290px;border-right:1px solid #1a1a2e;overflow-y:auto;padding:14px 10px;flex-shrink:0}
+.sidebar{width:250px;border-right:1px solid #1a1a2e;overflow-y:auto;padding:14px 10px;flex-shrink:0}
 .sidebar-title{font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;padding-left:4px}
 
 .agent-card{background:#13132a;border:2px solid #222244;border-radius:12px;padding:10px 12px;margin-bottom:6px;transition:all .4s ease;position:relative;overflow:hidden}
 .agent-card.active{transform:scale(1.02)}
-.agent-card.dimmed{opacity:.3}
 .agent-card .sweep-bar{position:absolute;top:0;left:0;height:3px;width:100%;animation:sweep 1.5s infinite}
 .agent-card .head{display:flex;align-items:center;gap:8px;margin-bottom:3px}
 .agent-card .emoji{font-size:20px}
@@ -1200,48 +1213,133 @@ body{background:#0a0a1a;color:#e0e0e0;font-family:'Inter',system-ui,-apple-syste
 .presets{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
 .presets button{padding:3px 8px;background:#13132a;border:1px solid #222244;border-radius:5px;color:#777;font-size:9px;cursor:pointer;font-family:inherit}
 
-.entropy-panel{padding:8px 12px;background:#0d0d20;border-radius:8px;border:1px solid #1e1e3a;margin:8px 18px;animation:fadeIn .3s ease}
-.entropy-title{font-size:10px;font-weight:700;color:#8B5CF6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-.entropy-bar{display:flex;align-items:center;gap:6px;margin-bottom:3px}
-.entropy-bar .label{font-size:9px;color:#999;width:80px}
-.entropy-bar .bar{flex:1;height:6px;background:#1a1a2e;border-radius:3px;overflow:hidden}
-.entropy-bar .fill{height:100%;border-radius:3px;transition:width .5s ease}
-.entropy-bar .val{font-size:9px;color:#555;width:35px;text-align:right}
-
-.trail-panel{padding:8px 12px;background:#0d0d20;border-radius:8px;border:1px solid #1e1e3a;margin:6px 18px}
-.trail-title{font-size:10px;font-weight:700;color:#D97706;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-.trail-stat{font-size:9px;color:#888;display:inline-block;margin-right:12px}
-.trail-stat span{color:#F59E0B;font-weight:600}
-
-.log-area{flex:1;overflow-y:auto;padding:10px 18px}
-.empty-state{text-align:center;padding:50px 0;color:#444}
-.empty-state .icon{font-size:40px;margin-bottom:10px}
-.empty-state .title{font-size:14px;font-weight:600;margin-bottom:4px}
-.empty-state .sub{font-size:11px;color:#555;max-width:380px;margin:0 auto;line-height:1.5}
-
-.log-entry{display:flex;gap:9px;padding:7px 10px;border-radius:7px;animation:fadeIn .3s ease}
-.log-entry:nth-child(odd){background:#13132a33}
-.log-entry .emoji{font-size:14px;flex-shrink:0;margin-top:2px}
-.log-entry .name{font-weight:700;font-size:10px}
-.log-entry .meta{font-size:8px;color:#555;display:flex;gap:6px;flex-wrap:wrap;margin-top:1px}
-.log-entry .meta span{background:#0a0a18;padding:1px 4px;border-radius:3px}
-.log-entry .output{margin-top:4px;padding:8px 10px;background:#090918;border-radius:5px;font-size:10px;color:#c8d6e5;font-family:'Inter',system-ui,sans-serif;border-left:3px solid #ffffff15;line-height:1.5;max-height:400px;overflow-y:auto}
-
 .stream-indicator{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle}
 .stream-indicator span{width:4px;height:4px;border-radius:50%;animation:typing .8s infinite}
 .stream-indicator span:nth-child(2){animation-delay:.15s}
 .stream-indicator span:nth-child(3){animation-delay:.3s}
 
-.complete-banner{text-align:center;padding:12px;margin:10px 0;background:linear-gradient(135deg,#10B98112,#D9770612);border-radius:10px;border:1px solid #10B98130}
+/* Canvas area */
+.canvas-area{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 100%,#12122e 0%,#0a0a1a 70%)}
+.canvas-floor{position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(180deg,#13132a00,#13132a);border-top:1px solid #1e1e3a}
+.canvas-stars{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.canvas-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0.2;animation:pulse 3s infinite}
+
+/* Kawaii character wrapper */
+.kw-char{position:absolute;bottom:55px;display:flex;flex-direction:column;align-items:center;transition:left 1s ease,opacity 0.4s ease}
+.kw-char.idle .kw-body{animation:idleBob 2.5s ease-in-out infinite}
+.kw-char.busy .kw-body{animation:idleBob 1.2s ease-in-out infinite}
+.kw-char.done .kw-body{animation:celebrateJump 0.6s ease infinite}
+
+/* Bubble */
+.kw-bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:6px;background:#181835ee;border:1px solid;border-radius:10px;padding:4px 10px;font-size:8px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;animation:floatUp 4s ease-in-out infinite;backdrop-filter:blur(6px)}
+.kw-bubble::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #181835}
+
+/* Name label */
+.kw-name{font-size:9px;font-weight:700;letter-spacing:0.5px;margin-bottom:3px;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.6)}
+
+/* Body container */
+.kw-body{position:relative;width:56px;height:62px}
+
+/* Big round head (kawaii = big head!) */
+.kw-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:30px;border-radius:50%;border:2px solid;z-index:2}
+.kw-eyes{position:absolute;top:11px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.kw-eye{width:4px;height:5px;background:#fff;border-radius:50%;animation:blink 3.5s infinite;position:relative}
+.kw-eye::after{content:'';position:absolute;top:0;right:0;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0.8}
+.kw-mouth{position:absolute;top:19px;left:50%;transform:translateX(-50%);width:5px;height:3px;border-radius:0 0 5px 5px;background:#ffffff40}
+.kw-blush-l,.kw-blush-r{position:absolute;top:16px;width:5px;height:3px;border-radius:50%;opacity:0.5;animation:blushPulse 2s infinite}
+.kw-blush-l{left:4px}
+.kw-blush-r{right:4px}
+
+/* Hair - boy style */
+.kw-hair-boy{position:absolute;top:-5px;left:50%;transform:translateX(-50%);z-index:3;width:30px;height:12px}
+.kw-spike{position:absolute;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent}
+.kw-spike:nth-child(1){left:2px;top:0}
+.kw-spike:nth-child(2){left:9px;top:-3px}
+.kw-spike:nth-child(3){right:2px;top:1px}
+
+/* Hair - girl style */
+.kw-hair-girl{position:absolute;top:-5px;left:50%;transform:translateX(-50%);z-index:3;width:36px;height:16px;border-radius:18px 18px 0 0}
+.kw-pigtail-l,.kw-pigtail-r{position:absolute;bottom:-10px;width:5px;height:14px;border-radius:0 0 4px 4px}
+.kw-pigtail-l{left:2px}
+.kw-pigtail-r{right:2px}
+.kw-bow{position:absolute;top:-2px;right:0;z-index:4}
+.kw-bow::before,.kw-bow::after{content:'';position:absolute;width:5px;height:5px;border-radius:50%;top:0}
+.kw-bow::before{left:-3px}
+.kw-bow::after{right:-3px}
+
+/* Small body */
+.kw-torso{position:absolute;top:28px;left:50%;transform:translateX(-50%);width:20px;height:14px;border-radius:6px 6px 3px 3px;border:2px solid;z-index:1}
+
+/* Tiny arms - one types! */
+.kw-arm-l,.kw-arm-r{position:absolute;top:30px;width:5px;height:10px;border-radius:3px;z-index:1}
+.kw-arm-l{left:10px}
+.kw-arm-r{right:10px}
+.busy .kw-arm-l,.busy .kw-arm-r{animation:typingHands 0.3s ease-in-out infinite}
+.busy .kw-arm-r{animation-delay:0.15s}
+
+/* Tiny legs */
+.kw-leg-l,.kw-leg-r{position:absolute;top:40px;width:5px;height:10px;border-radius:3px}
+.kw-leg-l{left:18px}
+.kw-leg-r{right:18px}
+.kw-foot-l,.kw-foot-r{position:absolute;top:49px;width:7px;height:4px;border-radius:2px 4px 2px 2px}
+.kw-foot-l{left:16px}
+.kw-foot-r{right:16px}
+
+/* Laptop/desk */
+.kw-desk{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:48px;height:6px;border-radius:2px;z-index:0}
+.kw-laptop{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);z-index:0}
+.kw-laptop-base{width:24px;height:3px;border-radius:1px;margin:0 auto}
+.kw-laptop-screen{width:20px;height:14px;border-radius:2px 2px 0 0;margin:0 auto;position:relative;overflow:hidden}
+.busy .kw-laptop-screen{animation:laptopType 0.5s ease-in-out infinite}
+.kw-screen-lines{position:absolute;top:3px;left:3px;right:3px;bottom:2px;display:flex;flex-direction:column;gap:2px}
+.kw-screen-line{height:1px;border-radius:1px;opacity:0.7}
+.busy .kw-screen-line{animation:screenGlow 1.5s ease-in-out infinite}
+.busy .kw-screen-line:nth-child(2){animation-delay:0.3s}
+.busy .kw-screen-line:nth-child(3){animation-delay:0.6s}
+
+/* Code block stack */
+.kw-blocks{position:absolute;bottom:10px;display:flex;flex-direction:column-reverse;align-items:center;gap:2px}
+.kw-block{width:28px;height:10px;border-radius:3px;animation:blockDrop 0.4s ease-out;position:relative;overflow:hidden;display:flex;align-items:center;padding-left:3px}
+.kw-block::after{content:'';position:absolute;top:0;width:10px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);animation:blockShine 2s linear infinite}
+.kw-block-line{width:60%;height:2px;border-radius:1px;background:rgba(255,255,255,0.3)}
+
+/* Done stars */
+.kw-star{position:absolute;width:6px;height:6px;animation:starPop 1s ease-out infinite}
+.kw-star::before,.kw-star::after{content:'';position:absolute;background:currentColor}
+.kw-star::before{width:6px;height:2px;top:2px;left:0;border-radius:1px}
+.kw-star::after{width:2px;height:6px;top:0;left:2px;border-radius:1px}
+
+/* Shadow */
+.kw-shadow{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:36px;height:5px;border-radius:50%;opacity:0.2}
+
+/* Status area below canvas */
+.status-bar{padding:6px 18px;border-top:1px solid #1a1a2e;display:flex;align-items:center;gap:12px;background:#0a0a1a;flex-shrink:0}
+.status-bar .phase-info{font-size:10px;font-weight:600;letter-spacing:0.5px}
+.status-bar .stats{font-size:9px;color:#666;margin-left:auto;display:flex;gap:10px}
+.status-bar .stats span{color:#F59E0B;font-weight:600}
+
+/* Output panel */
+.output-panel{max-height:45vh;overflow-y:auto;border-top:1px solid #1a1a2e;padding:12px 18px;flex-shrink:0}
+.output-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px}
+.output-toggle .label{font-size:10px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1px}
+.output-toggle .arrow{font-size:10px;color:#10B981;transition:transform 0.2s}
+
+.final-output{text-align:left;background:#0a0a1a;border:1px solid #10B98130;border-radius:10px;overflow:hidden;animation:fadeIn 0.3s ease}
+.final-output-header{padding:10px 14px;background:#10B98110;border-bottom:1px solid #10B98120;display:flex;align-items:center;gap:8px}
+.final-output-header .label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1px}
+.final-output-body{padding:14px 16px;font-size:11px;color:#c8d6e5;line-height:1.6;max-height:400px;overflow-y:auto}
+
+.complete-banner{text-align:center;padding:12px;margin-bottom:10px;background:linear-gradient(135deg,#10B98112,#D9770612);border-radius:10px;border:1px solid #10B98130}
 .complete-banner .title{font-weight:700;color:#10B981;font-size:13px}
 .complete-banner .sub{font-size:10px;color:#666;margin-top:3px}
 .metrics{display:flex;gap:12px;justify-content:center;margin-top:6px;flex-wrap:wrap}
 .metric{font-size:9px;color:#888}.metric span{color:#10B981;font-weight:600}
 
-.final-output{margin:12px 0;text-align:left;background:#0a0a1a;border:1px solid #10B98130;border-radius:10px;overflow:hidden}
-.final-output-header{padding:10px 14px;background:#10B98110;border-bottom:1px solid #10B98120;display:flex;align-items:center;gap:8px}
-.final-output-header .label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1px}
-.final-output-body{padding:14px 16px;font-size:11px;color:#c8d6e5;line-height:1.6;max-height:500px;overflow-y:auto}
+/* Empty state in canvas */
+.canvas-empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#333}
+.canvas-empty .icon{font-size:48px;margin-bottom:12px}
+.canvas-empty .title{font-size:15px;font-weight:600;color:#555;margin-bottom:6px}
+.canvas-empty .sub{font-size:11px;color:#444;max-width:350px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -1290,6 +1388,7 @@ let renderPending=false;
 function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(()=>{renderPending=false;render()});}
 
 function updateAgentToken(agentId){
+  // Update sidebar card action text
   const cards=document.querySelectorAll(".agent-card");
   const al=Object.values(state.agents);
   const idx=al.findIndex(a=>a.id===agentId);
@@ -1302,81 +1401,181 @@ function updateAgentToken(agentId){
     if(actionEl){actionEl.innerHTML=html;}
     else{actionEl=document.createElement("div");actionEl.className="action";actionEl.style.cssText="color:"+a.color+";border-color:"+a.color;actionEl.innerHTML=html;card.appendChild(actionEl);}
   }else if(actionEl){actionEl.remove();}
+  // Update canvas bubble
+  const bubble=document.querySelector('.kw-bubble[data-agent="'+agentId+'"]');
+  if(bubble&&action){bubble.textContent=action.slice(-35);}
+}
+
+// Gender assignment for kawaii characters (alternating boy/girl)
+const GENDER_MAP={orchestrator:'boy',researcher:'girl',planner:'boy',senior:'girl',frontend:'boy',backend:'girl',systems:'boy',writer:'girl',reviewer:'boy'};
+
+function buildKawaii(agent,idx,total,isBusy,isDone,action,blockCount){
+  const g=GENDER_MAP[agent.id]||(idx%2===0?'boy':'girl');
+  const spacing=total>1?80/(total-1):50;
+  const leftPct=total>1?10+idx*spacing:50;
+  const st=isBusy?'busy':(isDone?'done':'idle');
+  const c=agent.color;
+  const blocks=Math.min(blockCount||0,6);
+
+  // Build stacking code blocks
+  var blockHtml='';
+  if(blocks>0){
+    blockHtml='<div class="kw-blocks" style="right:-18px">';
+    for(var b=0;b<blocks;b++){
+      var opacity=0.5+b*0.1;
+      blockHtml+='<div class="kw-block" style="background:'+c+';opacity:'+opacity+';animation-delay:'+b*0.1+'s"><div class="kw-block-line"></div></div>';
+    }
+    blockHtml+='</div>';
+  }
+
+  return '<div class="kw-char '+st+'" style="left:'+leftPct+'%;transform:translateX(-50%)">'
+    // Speech bubble
+    +(action?'<div class="kw-bubble" data-agent="'+agent.id+'" style="border-color:'+c+'50;color:'+c+'">'+esc((action||'').slice(-35))+'</div>':'')
+    // Name
+    +'<div class="kw-name" style="color:'+c+'">'+agent.emoji+' '+agent.name+'</div>'
+    +'<div class="kw-body">'
+    // Head (big kawaii head!)
+    +'<div class="kw-head" style="background:'+c+'18;border-color:'+c+'">'
+    +'<div class="kw-eyes"><div class="kw-eye"></div><div class="kw-eye"></div></div>'
+    +'<div class="kw-mouth"></div>'
+    +'<div class="kw-blush-l" style="background:'+c+'"></div>'
+    +'<div class="kw-blush-r" style="background:'+c+'"></div>'
+    +'</div>'
+    // Hair
+    +(g==='girl'
+      ?'<div class="kw-hair-girl" style="background:'+c+'70">'
+       +'<div class="kw-pigtail-l" style="background:'+c+'70"></div>'
+       +'<div class="kw-pigtail-r" style="background:'+c+'70"></div>'
+       +'<div class="kw-bow" style="color:'+c+'"><span style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:3px;height:3px;background:'+c+';border-radius:50%"></span></div>'
+       +'</div>'
+      :'<div class="kw-hair-boy">'
+       +'<div class="kw-spike" style="border-bottom:9px solid '+c+'"></div>'
+       +'<div class="kw-spike" style="border-bottom:11px solid '+c+'"></div>'
+       +'<div class="kw-spike" style="border-bottom:8px solid '+c+'"></div>'
+       +'</div>')
+    // Body
+    +'<div class="kw-torso" style="background:'+c+'20;border-color:'+c+'60"></div>'
+    +'<div class="kw-arm-l" style="background:'+c+'50"></div>'
+    +'<div class="kw-arm-r" style="background:'+c+'50"></div>'
+    +'<div class="kw-leg-l" style="background:'+c+'35"></div>'
+    +'<div class="kw-leg-r" style="background:'+c+'35"></div>'
+    +'<div class="kw-foot-l" style="background:'+c+'"></div>'
+    +'<div class="kw-foot-r" style="background:'+c+'"></div>'
+    // Laptop
+    +'<div class="kw-laptop">'
+    +'<div class="kw-laptop-screen" style="background:'+c+'30;border:1px solid '+c+'50">'
+    +'<div class="kw-screen-lines">'
+    +'<div class="kw-screen-line" style="background:'+c+';width:70%"></div>'
+    +'<div class="kw-screen-line" style="background:'+c+';width:50%"></div>'
+    +'<div class="kw-screen-line" style="background:'+c+';width:85%"></div>'
+    +'</div></div>'
+    +'<div class="kw-laptop-base" style="background:'+c+'60"></div>'
+    +'</div>'
+    // Desk
+    +'<div class="kw-desk" style="background:'+c+'15;border:1px solid '+c+'25"></div>'
+    // Shadow
+    +'<div class="kw-shadow" style="background:'+c+'"></div>'
+    +'</div>'
+    // Stacking blocks
+    +blockHtml
+    // Done stars
+    +(isDone
+      ?'<div class="kw-star" style="color:'+c+';top:-5px;left:0;animation-delay:0s"></div>'
+       +'<div class="kw-star" style="color:'+c+';top:-10px;right:0;animation-delay:0.3s"></div>'
+       +'<div class="kw-star" style="color:'+c+';top:5px;right:-8px;animation-delay:0.6s"></div>'
+      :'')
+    +'</div>';
+}
+
+function generateStars(){
+  let s='';
+  for(let i=0;i<40;i++){
+    const x=Math.random()*100;const y=Math.random()*100;const d=Math.random()*3;const sz=1+Math.random()*2;
+    s+='<div class="canvas-star" style="left:'+x+'%;top:'+y+'%;width:'+sz+'px;height:'+sz+'px;animation-delay:'+d+'s"></div>';
+  }
+  return s;
 }
 
 function render(){
   const app=document.getElementById("app");
   const al=Object.values(state.agents);
-  app.innerHTML=\`
-    <div class="header">
-      <div class="logo">🧬</div>
-      <div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence · \${al.length} agents · \${state.taskCount} task\${state.taskCount===1?"":"s"}</p></div>
-      \${state.phase?\`<div class="phase-badge"><div class="phase-dot" style="background:\${PC[state.phase.phase]||'#8B5CF6'}"></div><span class="phase-label" style="color:\${PC[state.phase.phase]||'#8B5CF6'}">\${state.phase.label}</span></div>\`:""}
-      <div style="font-size:10px;color:#555;margin-left:auto">\${state.connected?'<span style="color:#10B981">● Live</span>':"Connecting..."} · \${state.sessionId||"..."}</div>
-    </div>
-    <div class="main">
-      <div class="sidebar">
-        <div class="sidebar-title">Agent Fleet + Trust</div>
-        \${al.map(a=>{
-          const active=state.activeAgents.has(a.id);const busy=state.busyAgents.has(a.id);
-          const action=state.agentActions[a.id];const count=state.messageCounts[a.id]||0;
-          const tp=state.trustProfile[a.id]||{};
-          const bestDomain=Object.entries(tp).sort((x,y)=>(y[1].expected||0)-(x[1].expected||0))[0];
-          const trustPct=bestDomain?Math.round((bestDomain[1].expected||0)*100):0;
-          return\`<div class="agent-card \${active?"active":""}" style="border-color:\${active?a.color:"#222244"};\${active?"box-shadow:0 0 12px "+a.color+"30;background:"+a.color+"12":""}">
-            \${busy?\`<div class="sweep-bar" style="background:linear-gradient(90deg,transparent,\${a.color},transparent)"></div>\`:""}
-            <div class="head">
-              <span class="emoji">\${a.emoji}</span>
-              <div style="flex:1"><div class="name">\${a.name}</div><div class="role" style="color:\${a.color}">\${a.role}</div></div>
-              \${count?\`<span class="badge" style="background:\${a.color}">\${count}</span>\`:""}
-            </div>
-            \${bestDomain?\`<div class="trust-bar"><div class="trust-fill" style="width:\${trustPct}%;background:\${a.color}"></div></div>
-            <div class="trust-label">Trust: \${trustPct}% in \${bestDomain[0]}</div>\`:""}
-            \${action?\`<div class="action" style="color:\${a.color};border-color:\${a.color}">\${esc(action.slice(-100))}\${busy?\`<span class="stream-indicator"><span style="background:\${a.color}"></span><span style="background:\${a.color}"></span><span style="background:\${a.color}"></span></span>\`:""}</div>\`:""}
-          </div>\`;
-        }).join("")}
-      </div>
-      <div class="content">
-        <div class="input-area">
-          <div class="input-row">
-            <input id="ti" placeholder="Describe a task — SESI agents will decompose, route by trust, and collaborate..." \${state.running?"disabled":""} onkeydown="if(event.key==='Enter')submit(this.value)">
-            <button class="btn-deploy" onclick="submit(document.getElementById('ti').value)" \${state.running?"disabled":""}>Deploy SESI</button>
-          </div>
-          <div class="presets">\${["Build a SaaS MVP with auth and billing","Architect a scalable microservices system","Write a technical deep-dive on event sourcing","Create a real-time chat architecture","Design a CI/CD pipeline for Kubernetes"].map(p=>\`<button onclick="document.getElementById('ti').value='\${p}'">\${p}</button>\`).join("")}</div>
-        </div>
-        \${state.decomposition?\`<div class="entropy-panel">
-          <div class="entropy-title">Entropic Decomposition — \${state.decomposition.activeDomains.length} domains, \${state.decomposition.phases.length} phases</div>
-          \${state.decomposition.activeDomains.map(d=>\`<div class="entropy-bar">
-            <div class="label">\${d.label}</div>
-            <div class="bar"><div class="fill" style="width:\${Math.round(d.entropy*100)}%;background:\${PC[d.domain]||'#8B5CF6'}"></div></div>
-            <div class="val">\${(d.entropy*100).toFixed(0)}%</div>
-          </div>\`).join("")}
-        </div>\`:""}
-        \${state.metrics?\`<div class="trail-panel">
-          <div class="trail-title">Pheromone Trail</div>
-          <span class="trail-stat">Artifacts: <span>\${state.metrics.pheromoneTrail?.total||0}</span></span>
-          <span class="trail-stat">Strong: <span>\${state.metrics.pheromoneTrail?.strong||0}</span></span>
-          <span class="trail-stat">Avg strength: <span>\${(state.metrics.pheromoneTrail?.avgPheromone||0).toFixed(2)}</span></span>
-          <span class="trail-stat">Agent calls: <span>\${state.metrics.agentCalls}</span></span>
-          <span class="trail-stat">Duration: <span>\${(state.metrics.duration/1000).toFixed(1)}s</span></span>
-        </div>\`:""}
-        <div class="log-area" id="la">
-          \${state.log.length===0&&!state.decomposition
-            ?\`<div class="empty-state"><div class="icon">🧬</div><div class="title">SESI Protocol standing by</div><div class="sub">Enter any task — the entropic decomposition engine will measure uncertainty, Bayesian trust will route to the best agents, and the pheromone trail will accumulate knowledge artifacts.</div></div>\`
-            :\`\${state.log.map(e=>{
-              if(e.type==="routing")return\`<div class="log-entry" style="background:#13132a88"><span class="emoji">🎯</span><div><div class="name" style="color:#F59E0B">Trust Routing</div><div style="font-size:9px;color:#999">\${esc(e.agentName)} selected for <strong>\${e.domain}</strong> — \${esc(e.reasoning)}\${e.isExploratory?' <span style="color:#F59E0B">[EXPLORATORY]</span>':""}</div></div></div>\`;
-              const a=e.agent||state.agents[e.agentId]||{};
-              return\`<div class="log-entry"><span class="emoji">\${a.emoji||"?"}</span><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:5px"><span class="name" style="color:\${a.color||"#888"}">\${e.name||a.name||"?"}</span><span style="font-size:8px;color:#555">\${e.time}</span></div>
-              <div class="meta">\${e.artifactType?\`<span style="color:#F59E0B">\${e.artifactType}</span>\`:""}\${e.domain?\`<span>\${e.domain}</span>\`:""}\${e.confidence?\`<span>conf: \${(e.confidence*100).toFixed(0)}%</span>\`:""}\${e.pheromone?\`<span>pher: \${e.pheromone.toFixed(2)}</span>\`:""}</div>
-              <div class="output">\${md((e.output||"").slice(0,4000))}</div></div></div>\`;
-            }).join("")}
-            \${!state.running&&state.metrics?\`<div class="complete-banner"><div class="title">SESI task complete</div><div class="sub">\${state.metrics.agentCalls} agent calls · \${state.metrics.pheromoneTrail?.total||0} artifacts · trust updated</div>
-            <div class="metrics"><div class="metric">Duration: <span>\${(state.metrics.duration/1000).toFixed(1)}s</span></div><div class="metric">Domains: <span>\${state.metrics.decomposition?.activeDomains||0}</span></div><div class="metric">Phases: <span>\${state.metrics.decomposition?.phases||0}</span></div><div class="metric">Tokens: <span>~\${state.metrics.tokensEstimate}</span></div></div></div>
-            \${state.finalOutput?\`<div class="final-output"><div class="final-output-header"><span style="font-size:16px">📋</span><span class="label">Final Deliverable</span></div><div class="final-output-body">\${md(state.finalOutput)}</div></div>\`:""}\`:""}\`}
-        </div>
-      </div>
-    </div>\`;
-  const la=document.getElementById("la");if(la)la.scrollTop=la.scrollHeight;
+  // Determine which agents to show on canvas
+  const canvasAgents=al.filter(a=>state.activeAgents.has(a.id));
+  const hasActivity=canvasAgents.length>0||state.finalOutput||state.decomposition;
+
+  app.innerHTML=
+    '<div class="header">'
+    +'<div class="logo">🧬</div>'
+    +'<div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence · '+al.length+' agents · '+state.taskCount+' task'+(state.taskCount===1?'':'s')+'</p></div>'
+    +(state.phase?'<div class="phase-badge"><div class="phase-dot" style="background:'+(PC[state.phase.phase]||'#8B5CF6')+'"></div><span class="phase-label" style="color:'+(PC[state.phase.phase]||'#8B5CF6')+'">'+state.phase.label+'</span></div>':'')
+    +'<div style="font-size:10px;color:#555;margin-left:auto">'+(state.connected?'<span style="color:#10B981">● Live</span>':'Connecting...')+' · '+(state.sessionId||'...')+'</div>'
+    +'</div>'
+    +'<div class="main">'
+    // Sidebar
+    +'<div class="sidebar">'
+    +'<div class="sidebar-title">Agent Fleet + Trust</div>'
+    +al.map(function(a){
+      var active=state.activeAgents.has(a.id),busy=state.busyAgents.has(a.id);
+      var action=state.agentActions[a.id],count=state.messageCounts[a.id]||0;
+      var tp=state.trustProfile[a.id]||{};
+      var entries=Object.entries(tp).sort(function(x,y){return(y[1].expected||0)-(x[1].expected||0)});
+      var bestDomain=entries[0];
+      var trustPct=bestDomain?Math.round((bestDomain[1].expected||0)*100):0;
+      return '<div class="agent-card'+(active?' active':'')+'" style="border-color:'+(active?a.color:'#222244')+';'+(active?'box-shadow:0 0 12px '+a.color+'30;background:'+a.color+'12':'')+'">'
+        +(busy?'<div class="sweep-bar" style="background:linear-gradient(90deg,transparent,'+a.color+',transparent)"></div>':'')
+        +'<div class="head"><span class="emoji">'+a.emoji+'</span><div style="flex:1"><div class="name">'+a.name+'</div><div class="role" style="color:'+a.color+'">'+a.role+'</div></div>'
+        +(count?'<span class="badge" style="background:'+a.color+'">'+count+'</span>':'')
+        +'</div>'
+        +(bestDomain?'<div class="trust-bar"><div class="trust-fill" style="width:'+trustPct+'%;background:'+a.color+'"></div></div><div class="trust-label">Trust: '+trustPct+'% in '+bestDomain[0]+'</div>':'')
+        +(action?'<div class="action" style="color:'+a.color+';border-color:'+a.color+'">'+esc(action.slice(-100))+(busy?'<span class="stream-indicator"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':'')+'</div>':'')
+        +'</div>';
+    }).join('')
+    +'</div>'
+    // Content - Canvas
+    +'<div class="content">'
+    +'<div class="input-area"><div class="input-row">'
+    +'<input id="ti" placeholder="Describe a task — SESI agents will decompose, route by trust, and collaborate..." '+(state.running?'disabled':'')+' onkeydown="if(event.key===\'Enter\')submit(this.value)">'
+    +'<button class="btn-deploy" onclick="submit(document.getElementById(\'ti\').value)" '+(state.running?'disabled':'')+'>Deploy SESI</button>'
+    +'</div>'
+    +'<div class="presets">'+["Build a SaaS MVP with auth and billing","Architect a scalable microservices system","Write a technical deep-dive on event sourcing","Create a real-time chat architecture","Design a CI/CD pipeline for Kubernetes"].map(function(p){return '<button onclick="document.getElementById(\'ti\').value=\''+p+'\'">'+p+'</button>';}).join('')+'</div>'
+    +'</div>'
+    // Canvas
+    +'<div class="canvas-area">'
+    +'<div class="canvas-stars">'+generateStars()+'</div>'
+    +'<div class="canvas-floor"></div>'
+    +(!hasActivity
+      ?'<div class="canvas-empty"><div class="icon">🧬</div><div class="title">SESI Protocol standing by</div><div class="sub">Enter any task — cute agents will appear here and start building your solution block by block!</div></div>'
+      :canvasAgents.map(function(a,i){
+        var busy=state.busyAgents.has(a.id);
+        var done=!busy&&state.log.some(function(e){return e.agentId===a.id;});
+        var action=state.agentActions[a.id];
+        var msgCount=state.messageCounts[a.id]||0;
+        return buildKawaii(a,i,canvasAgents.length,busy,done,action,msgCount);
+      }).join(''))
+    +'</div>'
+    // Status bar
+    +(state.phase||state.metrics
+      ?'<div class="status-bar">'
+       +(state.phase?'<div class="phase-info" style="color:'+(PC[state.phase.phase]||'#8B5CF6')+'">'+state.phase.label+'</div>':'')
+       +(state.decomposition?'<span style="font-size:9px;color:#555">'+state.decomposition.activeDomains.length+' domains · '+state.decomposition.phases.length+' phases</span>':'')
+       +'<div class="stats">'
+       +(state.metrics?'<span>'+state.metrics.agentCalls+' calls</span> · <span>'+(state.metrics.pheromoneTrail?.total||0)+' artifacts</span> · <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span>':'')
+       +'</div></div>'
+      :'')
+    // Output panel
+    +(state.finalOutput||(!state.running&&state.metrics)
+      ?'<div class="output-panel">'
+       +(!state.running&&state.metrics
+         ?'<div class="complete-banner"><div class="title">SESI task complete</div><div class="sub">'+state.metrics.agentCalls+' agent calls · '+(state.metrics.pheromoneTrail?.total||0)+' artifacts · trust updated</div>'
+          +'<div class="metrics"><div class="metric">Duration: <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span></div><div class="metric">Domains: <span>'+(state.metrics.decomposition?.activeDomains||0)+'</span></div><div class="metric">Phases: <span>'+(state.metrics.decomposition?.phases||0)+'</span></div><div class="metric">Tokens: <span>~'+state.metrics.tokensEstimate+'</span></div></div></div>'
+         :'')
+       +(state.finalOutput
+         ?'<div class="final-output"><div class="final-output-header"><span style="font-size:16px">📋</span><span class="label">Final Deliverable</span></div><div class="final-output-body">'+md(state.finalOutput)+'</div></div>'
+         :'')
+       +'</div>'
+      :'')
+    +'</div>'
+    +'</div>';
 }
 render();init();
 </script>
