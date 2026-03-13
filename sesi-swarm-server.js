@@ -1249,28 +1249,46 @@ async function init(){
   const r=await fetch("/api/sessions",{method:"POST"});const{sessionId}=await r.json();state.sessionId=sessionId;
   const proto=location.protocol==="https:"?"wss":"ws";
   const ws=new WebSocket(proto+"://"+location.host+"/ws/"+sessionId);state.ws=ws;
-  ws.onopen=()=>{state.connected=true;render()};ws.onclose=()=>{state.connected=false;render()};
+  ws.onopen=()=>{state.connected=true;scheduleRender()};ws.onclose=()=>{state.connected=false;scheduleRender()};
   ws.onmessage=(e)=>handle(JSON.parse(e.data));
 }
 
 function handle(m){
   switch(m.type){
-    case "connected":m.data.agents.forEach(a=>{state.agents[a.id]=a});state.trustProfile=m.data.trustProfile||{};render();break;
-    case "swarm_start":state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;render();break;
-    case "phase_change":state.phase=m.data;render();break;
-    case "decomposition_complete":state.decomposition=m.data;state.totalSteps=m.data.activeDomains.length+2;render();break;
-    case "trust_routing":state.log.push({type:"routing",...m.data,time:ts()});render();break;
-    case "trust_update":if(state.trustProfile[m.data.agentId])state.trustProfile[m.data.agentId][m.data.domain]=m.data.newTrust;render();break;
-    case "agent_start":state.activeAgents.add(m.data.agentId);state.busyAgents.add(m.data.agentId);state.agentActions[m.data.agentId]=m.data.task?.slice(0,80)+"...";state.agentStreams[m.data.agentId]="";state.messageCounts[m.data.agentId]=(state.messageCounts[m.data.agentId]||0)+1;render();break;
-    case "agent_token":state.agentStreams[m.data.agentId]=(state.agentStreams[m.data.agentId]||"")+m.data.token;state.agentActions[m.data.agentId]=state.agentStreams[m.data.agentId].slice(-120);render();break;
-    case "agent_complete":state.busyAgents.delete(m.data.agentId);state.agentActions[m.data.agentId]=null;state.agentStreams[m.data.agentId]="";state.completedSteps++;state.log.push({agentId:m.data.agentId,name:m.data.name,output:m.data.output,artifactType:m.data.artifactType,domain:m.data.domain,confidence:m.data.confidence,pheromone:m.data.pheromone,time:ts(),agent:state.agents[m.data.agentId]});render();break;
-    case "swarm_complete":state.running=false;state.phase=null;state.metrics=m.data.metrics;state.taskCount++;render();break;
+    case "connected":m.data.agents.forEach(a=>{state.agents[a.id]=a});state.trustProfile=m.data.trustProfile||{};scheduleRender();break;
+    case "swarm_start":state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;scheduleRender();break;
+    case "phase_change":state.phase=m.data;scheduleRender();break;
+    case "decomposition_complete":state.decomposition=m.data;state.totalSteps=m.data.activeDomains.length+2;scheduleRender();break;
+    case "trust_routing":state.log.push({type:"routing",...m.data,time:ts()});scheduleRender();break;
+    case "trust_update":if(state.trustProfile[m.data.agentId])state.trustProfile[m.data.agentId][m.data.domain]=m.data.newTrust;scheduleRender();break;
+    case "agent_start":state.activeAgents.add(m.data.agentId);state.busyAgents.add(m.data.agentId);state.agentActions[m.data.agentId]=m.data.task?.slice(0,80)+"...";state.agentStreams[m.data.agentId]="";state.messageCounts[m.data.agentId]=(state.messageCounts[m.data.agentId]||0)+1;scheduleRender();break;
+    case "agent_token":state.agentStreams[m.data.agentId]=(state.agentStreams[m.data.agentId]||"")+m.data.token;state.agentActions[m.data.agentId]=state.agentStreams[m.data.agentId].slice(-120);updateAgentToken(m.data.agentId);break;
+    case "agent_complete":state.busyAgents.delete(m.data.agentId);state.agentActions[m.data.agentId]=null;state.agentStreams[m.data.agentId]="";state.completedSteps++;state.log.push({agentId:m.data.agentId,name:m.data.name,output:m.data.output,artifactType:m.data.artifactType,domain:m.data.domain,confidence:m.data.confidence,pheromone:m.data.pheromone,time:ts(),agent:state.agents[m.data.agentId]});scheduleRender();break;
+    case "swarm_complete":state.running=false;state.phase=null;state.metrics=m.data.metrics;state.taskCount++;scheduleRender();break;
   }
 }
 
 function ts(){return new Date().toTimeString().slice(0,8)}
 function submit(t){if(!t.trim()||state.running||!state.ws)return;state.ws.send(JSON.stringify({type:"run_task",task:t}))}
 function esc(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+let renderPending=false;
+function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(()=>{renderPending=false;render()});}
+
+function updateAgentToken(agentId){
+  const cards=document.querySelectorAll(".agent-card");
+  const al=Object.values(state.agents);
+  const idx=al.findIndex(a=>a.id===agentId);
+  if(idx<0||!cards[idx])return scheduleRender();
+  const card=cards[idx];const a=al[idx];
+  const action=state.agentActions[agentId];const busy=state.busyAgents.has(agentId);
+  let actionEl=card.querySelector(".action");
+  if(action){
+    const html=esc(action.slice(-100))+(busy?'<span class="stream-indicator"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':"");
+    if(actionEl){actionEl.innerHTML=html;}
+    else{actionEl=document.createElement("div");actionEl.className="action";actionEl.style.cssText="color:"+a.color+";border-color:"+a.color;actionEl.innerHTML=html;card.appendChild(actionEl);}
+  }else if(actionEl){actionEl.remove();}
+}
 
 function render(){
   const app=document.getElementById("app");
