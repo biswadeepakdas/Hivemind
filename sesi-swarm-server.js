@@ -1147,6 +1147,10 @@ wss.on("connection", (ws, req) => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 app.get("/", (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  res.set("ETag", `"${Date.now()}"`);
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
