@@ -1225,7 +1225,7 @@ body{background:#0a0a1a;color:#e0e0e0;font-family:'Inter',system-ui,-apple-syste
 .log-entry .name{font-weight:700;font-size:10px}
 .log-entry .meta{font-size:8px;color:#555;display:flex;gap:6px;flex-wrap:wrap;margin-top:1px}
 .log-entry .meta span{background:#0a0a18;padding:1px 4px;border-radius:3px}
-.log-entry .output{margin-top:4px;padding:5px 7px;background:#090918;border-radius:5px;font-size:9px;color:#7dd3fc;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;border-left:3px solid #ffffff15;line-height:1.4;max-height:180px;overflow-y:auto}
+.log-entry .output{margin-top:4px;padding:8px 10px;background:#090918;border-radius:5px;font-size:10px;color:#c8d6e5;font-family:'Inter',system-ui,sans-serif;border-left:3px solid #ffffff15;line-height:1.5;max-height:400px;overflow-y:auto}
 
 .stream-indicator{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle}
 .stream-indicator span{width:4px;height:4px;border-radius:50%;animation:typing .8s infinite}
@@ -1271,6 +1271,15 @@ function handle(m){
 function ts(){return new Date().toTimeString().slice(0,8)}
 function submit(t){if(!t.trim()||state.running||!state.ws)return;state.ws.send(JSON.stringify({type:"run_task",task:t}))}
 function esc(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function md(s){
+  return esc(s)
+    .replace(/^### (.+)$/gm,'<div style="font-size:11px;font-weight:700;color:#c4b5fd;margin:8px 0 3px">$1</div>')
+    .replace(/^## (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#e0e0e0;margin:10px 0 4px;border-bottom:1px solid #ffffff10;padding-bottom:3px">$1</div>')
+    .replace(/^# (.+)$/gm,'<div style="font-size:13px;font-weight:800;color:#fff;margin:10px 0 5px">$1</div>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#f0f0f0">$1</strong>')
+    .replace(/^- (.+)$/gm,'<div style="padding-left:10px;margin:1px 0"><span style="color:#8B5CF6;margin-right:4px">&#8226;</span>$1</div>')
+    .replace(/\n/g,'<br>');
+}
 
 let renderPending=false;
 function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(()=>{renderPending=false;render()});}
@@ -1296,7 +1305,7 @@ function render(){
   app.innerHTML=\`
     <div class="header">
       <div class="logo">🧬</div>
-      <div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence · \${al.length} agents · \${state.taskCount} tasks</p></div>
+      <div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence · \${al.length} agents · \${state.taskCount} task\${state.taskCount===1?"":"s"}</p></div>
       \${state.phase?\`<div class="phase-badge"><div class="phase-dot" style="background:\${PC[state.phase.phase]||'#8B5CF6'}"></div><span class="phase-label" style="color:\${PC[state.phase.phase]||'#8B5CF6'}">\${state.phase.label}</span></div>\`:""}
       <div style="font-size:10px;color:#555;margin-left:auto">\${state.connected?'<span style="color:#10B981">● Live</span>':"Connecting..."} · \${state.sessionId||"..."}</div>
     </div>
@@ -1354,7 +1363,7 @@ function render(){
               const a=e.agent||state.agents[e.agentId]||{};
               return\`<div class="log-entry"><span class="emoji">\${a.emoji||"?"}</span><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:5px"><span class="name" style="color:\${a.color||"#888"}">\${e.name||a.name||"?"}</span><span style="font-size:8px;color:#555">\${e.time}</span></div>
               <div class="meta">\${e.artifactType?\`<span style="color:#F59E0B">\${e.artifactType}</span>\`:""}\${e.domain?\`<span>\${e.domain}</span>\`:""}\${e.confidence?\`<span>conf: \${(e.confidence*100).toFixed(0)}%</span>\`:""}\${e.pheromone?\`<span>pher: \${e.pheromone.toFixed(2)}</span>\`:""}</div>
-              <div class="output">\${esc((e.output||"").slice(0,1200))}</div></div></div>\`;
+              <div class="output">\${md((e.output||"").slice(0,4000))}</div></div></div>\`;
             }).join("")}
             \${!state.running&&state.metrics?\`<div class="complete-banner"><div class="title">SESI task complete</div><div class="sub">\${state.metrics.agentCalls} agent calls · \${state.metrics.pheromoneTrail?.total||0} artifacts · trust updated</div>
             <div class="metrics"><div class="metric">Duration: <span>\${(state.metrics.duration/1000).toFixed(1)}s</span></div><div class="metric">Domains: <span>\${state.metrics.decomposition?.activeDomains||0}</span></div><div class="metric">Phases: <span>\${state.metrics.decomposition?.phases||0}</span></div><div class="metric">Tokens: <span>~\${state.metrics.tokensEstimate}</span></div></div></div>\`:""}\`}
