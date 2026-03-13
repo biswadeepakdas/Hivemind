@@ -29,6 +29,7 @@ import { withRetry } from "./scripts/lib/retry.js";
 import { CostTracker } from "./scripts/lib/cost-tracker.js";
 import { TrustPersistence } from "./scripts/lib/persistence.js";
 import { validateTaskInput, validateSessionId, rateLimit, requireApiKey, errorHandler } from "./scripts/lib/validate-input.js";
+import { CircuitBreaker } from "./scripts/lib/circuit-breaker.js";
 
 dotenv.config();
 
@@ -54,9 +55,14 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Initialize cost tracker and persistence
+// Initialize cost tracker, persistence, and circuit breaker
 const costTracker = new CostTracker();
 const persistence = new TrustPersistence();
+const circuitBreaker = new CircuitBreaker({
+  failureThreshold: 5,
+  resetTimeout: 30000,
+  halfOpenMax: 1,
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  SESI PILLAR 1: Pheromone Trail (Stigmergic Knowledge Environment)
@@ -148,6 +154,40 @@ class PheromoneTrail {
       byType[a.artifactType] = (byType[a.artifactType] || 0) + 1;
     });
     return { total, strong, avgPheromone, byType };
+  }
+
+  /**
+   * Prune low-pheromone artifacts to prevent unbounded growth.
+   * Keeps artifacts above threshold or younger than maxAge ms.
+   * @param {object} options
+   * @param {number} options.minPheromone - Minimum pheromone to survive (default: MIN_PHEROMONE + 0.05)
+   * @param {number} options.maxArtifacts - Hard cap on total artifacts (default: 200)
+   * @param {number} options.maxAge - Max age in ms before pruning eligible (default: 10 min)
+   */
+  prune(options = {}) {
+    const minPh = options.minPheromone ?? (MIN_PHEROMONE + 0.05);
+    const maxArtifacts = options.maxArtifacts ?? 200;
+    const maxAge = options.maxAge ?? 10 * 60 * 1000;
+    const now = Date.now();
+
+    const before = this.artifacts.length;
+
+    // Keep artifacts that are strong enough OR recent enough
+    this.artifacts = this.artifacts.filter(a =>
+      a.pheromone >= minPh || (now - a.timestamp) < maxAge
+    );
+
+    // If still over hard cap, keep only the strongest
+    if (this.artifacts.length > maxArtifacts) {
+      this.artifacts.sort((a, b) => b.pheromone - a.pheromone);
+      this.artifacts = this.artifacts.slice(0, maxArtifacts);
+    }
+
+    const pruned = before - this.artifacts.length;
+    if (pruned > 0) {
+      trailLog.info(`Pruned ${pruned} low-pheromone artifacts`, { before, after: this.artifacts.length });
+    }
+    return pruned;
   }
 
   clear() {
@@ -506,13 +546,54 @@ if (savedTrust) {
 //  SESI ENGINE — Entropic Decomposition + Trust Routing + Pheromone Trail
 // ═══════════════════════════════════════════════════════════════════════════
 
+const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+const MAX_SESSIONS = 50;
+const SESSION_CLEANUP_INTERVAL = 60 * 1000; // Check every minute
+
 class SESIEngine {
   constructor() {
     this.sessions = new Map();
     this.spectators = new Map();
+
+    // Periodic session eviction
+    this._cleanupTimer = setInterval(() => this._evictStaleSessions(), SESSION_CLEANUP_INTERVAL);
+    if (this._cleanupTimer.unref) this._cleanupTimer.unref(); // Don't keep process alive
+  }
+
+  _evictStaleSessions() {
+    const now = Date.now();
+    let evicted = 0;
+    for (const [id, session] of this.sessions) {
+      const age = now - (session.metrics.startTime || session.createdAt || now);
+      const isComplete = session.status === "complete" || session.status === "error";
+      if (isComplete && age > SESSION_TTL) {
+        this.sessions.delete(id);
+        this.spectators.delete(id);
+        evicted++;
+      }
+    }
+    if (evicted > 0) {
+      engineLog.info(`Evicted ${evicted} stale sessions`, { remaining: this.sessions.size });
+    }
   }
 
   createSession() {
+    // Enforce max session limit — evict oldest completed sessions first
+    if (this.sessions.size >= MAX_SESSIONS) {
+      const completed = [...this.sessions.entries()]
+        .filter(([, s]) => s.status === "complete" || s.status === "error")
+        .sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+
+      if (completed.length > 0) {
+        const [oldId] = completed[0];
+        this.sessions.delete(oldId);
+        this.spectators.delete(oldId);
+        engineLog.info(`Evicted oldest session to make room`, { evicted: oldId, total: this.sessions.size });
+      } else {
+        engineLog.warn("Max sessions reached with no completed sessions to evict", { max: MAX_SESSIONS });
+      }
+    }
+
     const sessionId = randomUUID().slice(0, 8);
     this.sessions.set(sessionId, {
       id: sessionId,
@@ -522,6 +603,7 @@ class SESIEngine {
       log: [],
       decomposition: null,
       agentSelections: [],
+      createdAt: Date.now(),
       metrics: { startTime: null, phaseTimings: {}, agentCalls: 0, tokensEstimate: 0 },
     });
     this.spectators.set(sessionId, new Set());
@@ -561,13 +643,23 @@ class SESIEngine {
       data: { agentId, name: agentDef.name, emoji: agentDef.emoji, role: agentDef.role, color: agentDef.color, task, domain },
     });
 
-    // Build context from pheromone trail (high-strength artifacts only)
+    // Build context from pheromone trail with token-budget-aware windowing
     const trailArtifacts = session.trail.getStrongArtifacts();
-    const trailSummary = trailArtifacts.length > 0
-      ? `\nPHEROMONE TRAIL (${trailArtifacts.length} strong artifacts):\n` +
-        trailArtifacts.slice(0, 8).map(a =>
-          `  [${a.artifactType.toUpperCase()}] by ${a.authorAgent} (pheromone: ${a.pheromone.toFixed(2)}): ${a.content.slice(0, 200)}`
-        ).join("\n")
+    const TOKEN_BUDGET = 3000; // ~3000 tokens for trail context
+    const CHARS_PER_TOKEN = 4;
+    const charBudget = TOKEN_BUDGET * CHARS_PER_TOKEN;
+    let usedChars = 0;
+    const contextArtifacts = [];
+    for (const a of trailArtifacts) {
+      // Prioritize domain-relevant artifacts, then include general ones
+      const contentSlice = a.content.slice(0, 600); // Up from 200
+      const entry = `  [${a.artifactType.toUpperCase()}] by ${a.authorAgent} (pheromone: ${a.pheromone.toFixed(2)}): ${contentSlice}`;
+      if (usedChars + entry.length > charBudget) break;
+      contextArtifacts.push(entry);
+      usedChars += entry.length;
+    }
+    const trailSummary = contextArtifacts.length > 0
+      ? `\nPHEROMONE TRAIL (${contextArtifacts.length}/${trailArtifacts.length} artifacts):\n` + contextArtifacts.join("\n")
       : "";
 
     const trustProfile = globalTrustModel.getCompetence(agentId, domain);
@@ -588,40 +680,47 @@ CONFIDENCE: [0.0-1.0]`,
     const model = process.env.SESI_MODEL || "claude-sonnet-4-20250514";
 
     try {
-      await withRetry(async (attempt) => {
-        if (attempt > 0) {
-          engineLog.info(`Retry attempt ${attempt} for agent ${agentId}`, { domain });
-        }
-
-        const stream = await anthropic.messages.stream({
-          model,
-          max_tokens: 4096,
-          system: agentDef.systemPrompt,
-          messages,
-        });
-
-        for await (const event of stream) {
-          if (event.type === "content_block_delta" && event.delta?.text) {
-            const token = event.delta.text;
-            fullResponse += token;
-            this.broadcast(sessionId, {
-              type: "agent_token",
-              data: { agentId, token, name: agentDef.name },
-            });
+      await circuitBreaker.execute(async () => {
+        await withRetry(async (attempt) => {
+          if (attempt > 0) {
+            engineLog.info(`Retry attempt ${attempt} for agent ${agentId}`, { domain });
           }
-        }
-      }, {
-        maxRetries: 3,
-        baseDelay: 2000,
-        onRetry: (err, attempt, delay) => {
-          engineLog.warn(`Agent ${agentId} call failed, retrying in ${delay}ms`, {
-            attempt, error: err.message, status: err.status,
+
+          const stream = await anthropic.messages.stream({
+            model,
+            max_tokens: 4096,
+            system: agentDef.systemPrompt,
+            messages,
           });
-        },
+
+          for await (const event of stream) {
+            if (event.type === "content_block_delta" && event.delta?.text) {
+              const token = event.delta.text;
+              fullResponse += token;
+              this.broadcast(sessionId, {
+                type: "agent_token",
+                data: { agentId, token, name: agentDef.name },
+              });
+            }
+          }
+        }, {
+          maxRetries: 3,
+          baseDelay: 2000,
+          onRetry: (err, attempt, delay) => {
+            engineLog.warn(`Agent ${agentId} call failed, retrying in ${delay}ms`, {
+              attempt, error: err.message, status: err.status,
+            });
+          },
+        });
       });
     } catch (err) {
-      fullResponse = `[Agent error: ${err.message}]`;
-      engineLog.error(`Agent ${agentId} failed after retries`, { error: err.message, domain });
+      if (err.circuitBreakerOpen) {
+        fullResponse = `[Circuit breaker OPEN — API temporarily unavailable. ${err.message}]`;
+        engineLog.warn(`Circuit breaker blocked agent ${agentId}`, { domain, stats: circuitBreaker.getStats() });
+      } else {
+        fullResponse = `[Agent error: ${err.message}]`;
+        engineLog.error(`Agent ${agentId} failed after retries`, { error: err.message, domain });
+      }
       this.broadcast(sessionId, {
         type: "agent_error",
         data: { agentId, error: err.message },
@@ -770,7 +869,8 @@ CONFIDENCE: [0.0-1.0]`,
         data: { phase: phaseName, label: phaseName.toUpperCase() },
       });
 
-      // For each domain in this phase, select agent by trust and execute
+      // Prepare all domain tasks for this phase, then execute in parallel
+      const domainTasks = [];
       for (const domainInfo of phase.domains) {
         const domain = domainInfo.domain;
 
@@ -805,14 +905,23 @@ CONFIDENCE: [0.0-1.0]`,
         else if (phaseName === "architecture") artifactType = ARTIFACT_TYPES.DECISION;
         else if (phaseName === "verification") artifactType = ARTIFACT_TYPES.CRITIQUE;
 
-        // Execute agent
-        const result = await this.callAgent(
-          sessionId, selection.agent.id,
-          `[${domainInfo.label} domain, entropy: ${domainInfo.entropy.toFixed(2)}] ${taskText}`,
-          domain, artifactType
-        );
+        domainTasks.push({ domainInfo, selection, artifactType });
+      }
 
-        // Queue for verification if exploratory or low confidence
+      // Execute all agents in this phase concurrently
+      const phaseResults = await Promise.all(
+        domainTasks.map(async ({ domainInfo, selection, artifactType }) => {
+          const result = await this.callAgent(
+            sessionId, selection.agent.id,
+            `[${domainInfo.label} domain, entropy: ${domainInfo.entropy.toFixed(2)}] ${taskText}`,
+            domainInfo.domain, artifactType
+          );
+          return { result, selection };
+        })
+      );
+
+      // Queue for verification if exploratory or low confidence
+      for (const { result, selection } of phaseResults) {
         if (selection.isExploratory || result.confidence < CONFIDENCE_THRESHOLD) {
           artifactsToVerify.push({ artifact: result.artifact, isExploratory: selection.isExploratory });
         }
@@ -820,18 +929,21 @@ CONFIDENCE: [0.0-1.0]`,
 
       session.metrics.phaseTimings[phaseName] = Date.now() - phaseStart;
 
-      // Decay pheromone between phases
+      // Decay pheromone and prune zombie artifacts between phases
       session.trail.decay();
+      session.trail.prune();
       phaseIndex++;
     }
 
-    // ── Epistemic Trust Gate: Verify flagged artifacts ────────────
+    // ── Epistemic Trust Gate: Verify flagged artifacts (parallel) ─
     if (artifactsToVerify.length > 0) {
       this.broadcast(sessionId, { type: "phase_change", data: { phase: "verifying", label: "EPISTEMIC TRUST GATE" } });
 
-      for (const { artifact, isExploratory } of artifactsToVerify) {
-        await this.verifyArtifact(sessionId, artifact, isExploratory);
-      }
+      await Promise.all(
+        artifactsToVerify.map(({ artifact, isExploratory }) =>
+          this.verifyArtifact(sessionId, artifact, isExploratory)
+        )
+      );
     }
 
     // ── SYNTHESIS: Combine high-pheromone artifacts ───────────────
@@ -921,6 +1033,7 @@ app.get("/api/health", (req, res) => {
     version: "2.1.0",
     uptime: process.uptime(),
     activeSessions: sesi.sessions.size,
+    circuitBreaker: circuitBreaker.getStats(),
   });
 });
 
