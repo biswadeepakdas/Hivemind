@@ -1283,6 +1283,20 @@ wss.on("connection", (ws, req) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  FILE UPLOAD — attach files to session context
+// ═══════════════════════════════════════════════════════════════════════════
+
+app.post("/api/upload/:sessionId", express.text({ type: "*/*", limit: "2mb" }), (req, res) => {
+  const { sessionId } = req.params;
+  const session = sesi.sessions.get(sessionId);
+  if (!session) return res.status(404).json({ error: "Session not found" });
+  const filename = req.headers["x-filename"] || "uploaded-file.txt";
+  if (!session.uploadedFiles) session.uploadedFiles = [];
+  session.uploadedFiles.push({ name: filename, content: req.body.slice(0, 50000) });
+  res.json({ ok: true, filename, files: session.uploadedFiles.length });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  EMBEDDED FRONTEND — served at root
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1295,421 +1309,548 @@ app.get("/", (req, res) => {
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SESI — Stigmergic Epistemic Swarm Intelligence</title>
+<title>Hivemind — Agentic AI Protocol</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0f18;color:#d4d4d8;font-family:'Inter',system-ui,sans-serif;overflow:hidden}
-::selection{background:rgba(255,255,255,.15)}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+body{background:#f9fafb;color:#111827;font-family:'Inter',system-ui,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+::selection{background:rgba(99,102,241,.2)}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:3px}
 
-@keyframes idleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-@keyframes workBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(0.05)}}
-@keyframes typingL{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) translateY(-2px)}}
-@keyframes typingR{0%,100%{transform:rotate(4deg)}50%{transform:rotate(-4deg) translateY(-2px)}}
-@keyframes screenGlow{0%,100%{opacity:.4}50%{opacity:1}}
-@keyframes celebrate{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-18px) rotate(-6deg)}75%{transform:translateY(-12px) rotate(6deg)}}
-@keyframes sparkle{0%{opacity:0;transform:scale(0) rotate(0)}50%{opacity:1;transform:scale(1.2) rotate(180deg)}100%{opacity:0;transform:scale(0) rotate(360deg)}}
-@keyframes floatBubble{0%{opacity:0;transform:translateX(-50%) translateY(6px)}12%{opacity:1;transform:translateX(-50%) translateY(0)}88%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-4px)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-@keyframes sweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-@keyframes twinkle{0%,100%{opacity:.05}50%{opacity:.45}}
-@keyframes starDrift{0%{transform:translateY(0) translateX(0)}50%{transform:translateY(-8px) translateX(4px)}100%{transform:translateY(0) translateX(0)}}
-@keyframes breathe{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.02)}}
-@keyframes blushPulse{0%,100%{opacity:.25}50%{opacity:.55}}
-@keyframes codeFloat{0%{opacity:0;transform:translateY(10px)}15%{opacity:.5}85%{opacity:.5}100%{opacity:0;transform:translateY(-20px)}}
-@keyframes glowPulse{0%,100%{opacity:.3}50%{opacity:.6}}
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.4)}50%{box-shadow:0 0 0 4px rgba(99,102,241,0)}}
+@keyframes slideRight{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
 
+/* Layout */
 .app{display:flex;height:100vh;flex-direction:column}
-.header{padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:14px;background:rgba(10,15,24,.75);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:10}
-.logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#8B5CF6,#D97706,#10B981);background-size:200% 200%;animation:gradientShift 4s ease infinite;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 20px rgba(139,92,246,.2)}
-.header h1{font-family:'DM Serif Display',serif;font-size:22px;font-weight:400;color:#fff;letter-spacing:-.3px}
-.header .sub{font-size:10px;color:rgba(255,255,255,.25);margin-top:2px;font-weight:500}
-.phase-badge{display:flex;align-items:center;gap:6px}
-.phase-dot{width:8px;height:8px;border-radius:99px;animation:pulse 1.2s infinite}
-.phase-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
-.conn-info{font-size:10px;color:rgba(255,255,255,.2);margin-left:auto}
+.header{padding:12px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;background:#fff;z-index:10;height:60px}
+.logo{font-family:'DM Serif Display',serif;font-size:22px;color:#111827;display:flex;align-items:center;gap:8px}
+.logo-icon{width:24px;height:24px;background:#6366f1;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+.conn-info{font-size:12px;color:#6b7280;margin-left:auto;display:flex;align-items:center;gap:6px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#10b981}
 
-.main{display:flex;flex:1;overflow:hidden}
-.sidebar{width:260px;border-right:1px solid rgba(255,255,255,.04);overflow-y:auto;padding:16px 12px;flex-shrink:0;background:rgba(10,15,24,.5);backdrop-filter:blur(12px)}
-.sidebar-title{font-size:9px;font-weight:700;color:rgba(255,255,255,.15);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;padding-left:4px}
+.main-view{display:flex;flex:1;overflow:hidden}
 
-.agent-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:11px 13px;margin-bottom:6px;transition:all .4s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;backdrop-filter:blur(8px)}
-.agent-card.active{box-shadow:0 0 25px rgba(139,92,246,.1)}
-.agent-card .sweep-bar{position:absolute;top:0;left:0;height:2px;width:100%;animation:sweep 1.8s infinite}
-.agent-card .ac-head{display:flex;align-items:center;gap:10px;margin-bottom:3px}
-.agent-card .emoji{font-size:22px}
-.agent-card .name{font-weight:700;color:#fff;font-size:12px}
-.agent-card .role{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px}
-.agent-card .trust-bar{height:3px;background:rgba(255,255,255,.04);border-radius:2px;margin-top:5px;overflow:hidden}
-.agent-card .trust-fill{height:100%;border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1)}
-.agent-card .trust-label{font-size:8px;color:rgba(255,255,255,.18);margin-top:3px}
-.agent-card .action{margin-top:6px;padding:6px 8px;background:rgba(0,0,0,.2);border-radius:8px;font-size:9px;font-family:'JetBrains Mono',monospace;line-height:1.5;border-left:3px solid;max-height:70px;overflow:hidden;word-break:break-word}
-.agent-card .badge{margin-left:auto;border-radius:99px;font-size:8px;font-weight:700;padding:3px 8px;color:#fff}
+/* Sidebar */
+.sidebar{width:280px;border-right:1px solid #e5e7eb;background:#f3f4f6;padding:16px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.sb-title{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;padding:0 4px 8px}
+.agent-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;transition:all .2s;min-height:76px}
+.agent-card.active{border-color:#6366f1;box-shadow:0 4px 12px rgba(99,102,241,.08)}
+.ac-head{display:flex;align-items:center;gap:10px}
+.ac-icon{font-size:20px}
+.ac-info{flex:1}
+.ac-name{font-size:13px;font-weight:600;color:#111827}
+.ac-role{font-size:10px;font-weight:500;color:#6b7280;text-transform:uppercase}
+.ac-trust{height:4px;background:#f3f4f6;border-radius:2px;overflow:hidden;margin-top:4px}
+.ac-trust-fill{height:100%;border-radius:2px;transition:width .5s}
+.ac-action{font-family:'JetBrains Mono',monospace;font-size:10px;color:#4b5563;background:#f9fafb;padding:6px 8px;border-radius:6px;border-left:2px solid;max-height:60px;overflow:hidden;word-break:break-word}
 
-.content{flex:1;display:flex;flex-direction:column;min-width:0}
-.input-area{padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.04);background:rgba(10,15,24,.6);backdrop-filter:blur(12px)}
-.input-row{display:flex;gap:10px}
-.input-row input{flex:1;padding:14px 18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;color:#fff;font-size:15px;outline:none;font-family:inherit;transition:border-color .3s,box-shadow .3s}
-.input-row input:focus{border-color:rgba(255,255,255,.25);box-shadow:0 0 30px rgba(99,102,241,.12)}
-.input-row input::placeholder{color:rgba(255,255,255,.2)}
-.input-row button{padding:14px 26px;border:none;border-radius:14px;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit;white-space:nowrap;transition:all .2s}
-.input-row button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 25px rgba(0,0,0,.3)}
-.btn-deploy{background:#fff;color:#0a0f18}
-.btn-deploy:disabled{background:rgba(255,255,255,.06);color:rgba(255,255,255,.2);cursor:default}
-.presets{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.presets button{padding:5px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;color:rgba(255,255,255,.3);font-size:9px;cursor:pointer;font-family:inherit;transition:all .25s}
-.presets button:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.6)}
+/* Workspace Canvas */
+.workspace{flex:1;display:flex;flex-direction:column;background:#fff;position:relative}
 
-.si{display:inline-flex;gap:3px;margin-left:5px;vertical-align:middle}
-.si span{width:4px;height:4px;border-radius:50%;animation:pulse .8s infinite}
-.si span:nth-child(2){animation-delay:.15s}
-.si span:nth-child(3){animation-delay:.3s}
+/* Landing / Initial State */
+.landing{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fafafa;z-index:5}
+.landing-title{font-family:'DM Serif Display',serif;font-size:42px;color:#111827;margin-bottom:32px;text-align:center}
 
-.canvas-area{flex:1;position:relative;overflow:hidden;background:#0a0f18}
-.canvas-glow{position:absolute;width:500px;height:500px;border-radius:50%;filter:blur(120px);pointer-events:none;animation:glowPulse 6s ease-in-out infinite}
-.canvas-glow.g1{background:rgba(56,189,248,.08);top:-100px;left:20%;animation-delay:0s}
-.canvas-glow.g2{background:rgba(139,92,246,.06);bottom:-150px;right:15%;animation-delay:3s}
-.canvas-floor{position:absolute;bottom:0;left:0;right:0;height:90px;background:linear-gradient(180deg,transparent,rgba(10,15,24,.9));pointer-events:none}
-.canvas-stars{position:absolute;inset:0;pointer-events:none}
-.canvas-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:twinkle 4s ease-in-out infinite,starDrift 12s ease-in-out infinite}
+/* Input Area */
+.input-container{width:100%;max-width:760px;padding:0 24px}
+.prompt-box{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.04);padding:16px;display:flex;flex-direction:column;gap:12px;transition:border-color .2s,box-shadow .2s}
+.prompt-box:focus-within{border-color:#d1d5db;box-shadow:0 12px 40px rgba(0,0,0,.08)}
+.prompt-input{width:100%;border:none;outline:none;font-family:'Inter',sans-serif;font-size:16px;color:#111827;resize:none;height:60px;background:transparent}
+.prompt-input::placeholder{color:#9ca3af}
+.prompt-actions{display:flex;align-items:center;justify-content:space-between}
 
-.chars-wrap{position:absolute;bottom:80px;left:0;right:0;display:flex;justify-content:center;gap:140px;pointer-events:none}
-.char{display:flex;flex-direction:column;align-items:center;position:relative}
-.char.idle .cw{animation:idleBob 3s ease-in-out infinite}
-.char.working .cw{animation:workBob 1.5s ease-in-out infinite}
-.char.done .cw{animation:celebrate .8s ease-in-out infinite}
+.btn-icon{width:36px;height:36px;border-radius:10px;border:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#4b5563;font-size:16px;transition:all .2s;position:relative}
+.btn-icon:hover{background:#f3f4f6;color:#111827}
+.btn-icon.has-file{background:#eef2ff;border-color:#c7d2fe;color:#4f46e5}
+.btn-submit{background:#111827;color:#fff;border:none;border-radius:10px;padding:8px 16px;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s}
+.btn-submit:hover:not(:disabled){background:#374151;transform:translateY(-1px)}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed}
 
-.char-bubble{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);background:rgba(15,15,40,.88);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:6px 14px;font-size:9px;font-weight:600;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .4s;z-index:5;box-shadow:0 4px 20px rgba(0,0,0,.4)}
-.char-bubble.on{opacity:1;animation:floatBubble 5s ease-in-out infinite}
-.char-bubble::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid rgba(15,15,40,.88)}
+.presets-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:760px;margin:32px auto 0;padding:0 24px}
+.preset-card{padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;cursor:pointer;transition:all .2s}
+.preset-card:hover{border-color:#d1d5db;box-shadow:0 4px 12px rgba(0,0,0,.03);transform:translateY(-2px)}
+.preset-title{font-size:13px;font-weight:600;color:#111827;margin-bottom:4px}
+.preset-desc{font-size:12px;color:#6b7280}
 
-.cn{font-size:11px;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,.6)}
-.cw{position:relative;width:90px;height:130px}
+/* Active Workflow View */
+.workflow-view{position:absolute;inset:0;background:#fafafa;padding:24px;overflow-x:auto;overflow-y:hidden;display:none;align-items:flex-start;gap:32px}
+.workflow-view.active{display:flex}
 
-.c-head{position:absolute;top:0;left:50%;transform:translateX(-50%);width:56px;height:52px;border-radius:50%;z-index:3;box-shadow:inset 0 -3px 6px rgba(0,0,0,.08)}
-.c-eyes{position:absolute;top:19px;left:50%;transform:translateX(-50%);display:flex;gap:15px}
-.c-eye{width:7px;height:9px;background:#1a1a2a;border-radius:50%;position:relative;animation:blink 4s infinite}
-.c-eye::after{content:'';position:absolute;top:1px;right:1px;width:3px;height:3px;background:#fff;border-radius:50%}
-.c-mouth{position:absolute;top:34px;left:50%;transform:translateX(-50%);width:8px;height:4px;border-radius:0 0 8px 8px;background:rgba(0,0,0,.15)}
-.working .c-mouth{width:6px;height:6px;border-radius:50%}
-.c-blush{position:absolute;top:29px;width:9px;height:5px;border-radius:50%;opacity:.3;animation:blushPulse 2.5s infinite}
-.c-blush.bl{left:6px}.c-blush.br{right:6px}
+.wf-page{width:340px;height:calc(100vh - 160px);background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.02);display:flex;flex-direction:column;flex-shrink:0;animation:fadeIn .4s ease}
+.wf-head{padding:12px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px;background:#f9fafb;border-radius:12px 12px 0 0}
+.wf-agent{font-size:13px;font-weight:600;color:#111827;flex:1}
+.wf-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;background:#eef2ff;color:#4f46e5}
+.wf-body{flex:1;padding:16px;overflow-y:auto;font-size:12px;color:#374151;line-height:1.6}
 
-.h-boy{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:4;width:54px;height:22px}
-.h-spike{position:absolute;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent}
-.h-spike:nth-child(1){left:3px;top:2px}.h-spike:nth-child(2){left:15px;top:-5px}.h-spike:nth-child(3){left:27px;top:-2px}.h-spike:nth-child(4){right:3px;top:3px}
+/* Connection Lines */
+.wf-connector{display:flex;align-items:center;justify-content:center;height:calc(100vh - 160px);width:32px;flex-shrink:0}
+.wf-arrow{width:100%;height:2px;background:#e5e7eb;position:relative}
+.wf-arrow::after{content:'';position:absolute;right:-2px;top:-4px;border-left:5px solid #e5e7eb;border-top:5px solid transparent;border-bottom:5px solid transparent}
+.wf-arrow.active{background:#6366f1;animation:pulseGlow 2s infinite}
+.wf-arrow.active::after{border-left-color:#6366f1}
 
-.h-girl{position:absolute;top:-7px;left:50%;transform:translateX(-50%);z-index:4;width:60px;height:26px;border-radius:30px 30px 0 0}
-.h-side{position:absolute;bottom:-20px;width:8px;height:26px;border-radius:0 0 6px 6px}
-.h-side.hl{left:4px}.h-side.hr{right:4px}
-.h-bow{position:absolute;top:-4px;right:5px;z-index:5}
-.h-bow::before,.h-bow::after{content:'';position:absolute;width:8px;height:7px;border-radius:50%;top:0}
-.h-bow::before{left:-4px}.h-bow::after{right:-4px}
-.h-bow-dot{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;z-index:1}
+/* Top active task bar */
+.top-task-bar{padding:12px 24px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:16px;z-index:9}
+.tt-input{flex:1;font-size:14px;color:#111827;border:none;outline:none;background:transparent}
+.tt-btn{background:#f3f4f6;border:1px solid #e5e7eb;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#4b5563;cursor:pointer}
+.tt-btn:hover{background:#e5e7eb}
 
-.c-torso{position:absolute;top:48px;left:50%;transform:translateX(-50%);width:30px;height:24px;border-radius:8px 8px 4px 4px;z-index:2;animation:breathe 3s ease-in-out infinite}
-.c-arm{position:absolute;top:52px;width:9px;height:20px;border-radius:5px;z-index:2;transform-origin:top center}
-.c-arm.al{left:17px}.c-arm.ar{right:17px}
-.working .c-arm.al{animation:typingL .35s ease-in-out infinite}
-.working .c-arm.ar{animation:typingR .35s ease-in-out infinite .15s}
-.c-leg{position:absolute;top:70px;width:9px;height:18px;border-radius:5px;z-index:1}
-.c-leg.ll{left:28px}.c-leg.lr{right:28px}
-.c-foot{position:absolute;top:86px;width:11px;height:5px;border-radius:3px}
-.c-foot.fl{left:26px}.c-foot.fr{right:26px}
+/* Output Modal */
+.result-modal{position:absolute;inset:0;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);z-index:50;display:none;justify-content:center;align-items:center;padding:40px}
+.result-modal.active{display:flex;animation:fadeIn .3s}
+.rm-content{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.08);width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.rm-header{padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+.rm-title{font-size:18px;font-weight:700;color:#111827;display:flex;align-items:center;gap:8px}
+.rm-close{border:none;background:transparent;font-size:24px;color:#9ca3af;cursor:pointer}
+.rm-close:hover{color:#111827}
+.rm-body{padding:24px;overflow-y:auto;background:#f9fafb}
 
-.c-desk{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:76px;height:8px;border-radius:3px;z-index:0;box-shadow:0 4px 15px rgba(0,0,0,.3)}
-.c-laptop{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1}
-.lp-screen{width:36px;height:26px;border-radius:3px 3px 0 0;margin:0 auto;position:relative;overflow:hidden;border:1px solid}
-.lp-base{width:40px;height:4px;border-radius:1px;margin:0 auto}
-.sc-lines{position:absolute;inset:3px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
-.sc-line{height:2px;border-radius:1px;opacity:.5}
-.working .sc-line{animation:screenGlow 2s ease-in-out infinite}
-.working .sc-line:nth-child(2){animation-delay:.4s}
-.working .sc-line:nth-child(3){animation-delay:.8s}
+/* Markdown & Code styling for light theme */
+.md-h1{font-size:15px;font-weight:700;color:#111827;margin:16px 0 8px}
+.md-h2{font-size:14px;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:4px;margin:12px 0 6px}
+.md-h3{font-size:13px;font-weight:600;color:#4b5563;margin:8px 0 4px}
+.md-strong{color:#111827;font-weight:600}
+.md-li{padding-left:16px;position:relative;margin:4px 0}
+.md-li::before{content:'\\2022';position:absolute;left:4px;color:#9ca3af}
 
-.c-sparkle{position:absolute;animation:sparkle 1.2s ease-out infinite;pointer-events:none}
-.c-sparkle::before,.c-sparkle::after{content:'';position:absolute;background:currentColor}
-.c-sparkle::before{width:8px;height:2px;top:3px;left:0;border-radius:1px}
-.c-sparkle::after{width:2px;height:8px;top:0;left:3px;border-radius:1px}
-.c-shadow{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:50px;height:8px;border-radius:50%;opacity:.12}
-
-.canvas-msg{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);text-align:center;color:rgba(255,255,255,.15);font-size:11px;font-weight:500;pointer-events:none;transition:opacity .5s}
-
-.status-bar{padding:8px 20px;border-top:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:14px;background:rgba(8,8,24,.7);flex-shrink:0}
-.status-bar .pi{font-size:10px;font-weight:700;letter-spacing:.5px}
-.status-bar .sts{font-size:9px;color:rgba(255,255,255,.25);margin-left:auto;display:flex;gap:12px}
-.status-bar .sts span{font-weight:700}
-
-.output-panel{max-height:45vh;overflow-y:auto;border-top:1px solid rgba(255,255,255,.04);padding:14px 20px;flex-shrink:0;background:rgba(10,15,24,.7);backdrop-filter:blur(12px)}
-.complete-banner{text-align:center;padding:14px;margin-bottom:12px;background:rgba(255,255,255,.03);border-radius:14px;border:1px solid rgba(255,255,255,.07);animation:fadeIn .5s ease}
-.complete-banner .cb-title{font-weight:800;color:#10B981;font-size:14px}
-.complete-banner .cb-sub{font-size:10px;color:rgba(255,255,255,.3);margin-top:4px}
-.cb-metrics{display:flex;gap:14px;justify-content:center;margin-top:8px;flex-wrap:wrap}
-.cb-metric{font-size:9px;color:rgba(255,255,255,.35)}.cb-metric span{color:#10B981;font-weight:700}
-
-.final-output{text-align:left;background:rgba(16,185,129,.02);border:1px solid rgba(16,185,129,.1);border-radius:14px;overflow:hidden;animation:fadeIn .5s ease}
-.fo-header{padding:12px 16px;background:rgba(16,185,129,.05);border-bottom:1px solid rgba(16,185,129,.08);display:flex;align-items:center;gap:10px}
-.fo-header .fo-label{font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:1.5px}
-.fo-body{padding:16px 18px;font-size:12px;color:#c8d6e5;line-height:1.7;max-height:500px;overflow-y:auto}
-.file-card{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:10px;overflow:hidden}
-.file-card-head{padding:8px 12px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px}
-.file-card-head .fname{font-size:11px;font-weight:700;color:#10B981;font-family:'JetBrains Mono',monospace;flex:1}
-.file-card-head button{padding:3px 10px;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);font-size:9px;cursor:pointer;font-family:inherit;transition:all .2s}
-.file-card-head button:hover{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#10B981}
-.file-card-code{padding:12px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;line-height:1.6;color:#c8d6e5;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;tab-size:2}
-.dl-bar{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(16,185,129,.08)}
-.dl-bar button{padding:8px 18px;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:12px;font-family:inherit;background:linear-gradient(135deg,#10B981,#059669);color:#fff;transition:transform .15s}
-.dl-bar button:hover{transform:translateY(-1px)}
-.dl-bar .dl-info{font-size:10px;color:rgba(255,255,255,.3);margin-left:auto}
+.file-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.02)}
+.file-card-head{padding:10px 16px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px}
+.fc-name{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#4f46e5;flex:1}
+.fc-btn{padding:4px 12px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#4b5563;font-size:11px;font-weight:500;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:4px}
+.fc-btn:hover{background:#f3f4f6;color:#111827}
+.file-card-code{padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;color:#374151;background:#fff;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;tab-size:2}
+.dl-bar{padding:16px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:16px}
+.btn-dl{background:#6366f1;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.btn-dl:hover{background:#4f46e5}
+.dl-info{font-size:12px;color:#6b7280;margin-left:auto}
 </style>
 </head>
 <body>
 <div class="app" id="app"></div>
 <script>
-var state={sessionId:null,ws:null,connected:false,running:false,agents:{},activeAgents:new Set(),busyAgents:new Set(),agentActions:{},agentStreams:{},messageCounts:{},log:[],phase:null,decomposition:null,trustProfile:{},trailStats:null,metrics:null,finalOutput:null,completedSteps:0,totalSteps:0,taskCount:0};
-var PC={decomposing:'#8B5CF6',discovery:'#3B82F6',architecture:'#D97706',execution:'#10B981',verification:'#EF4444',verifying:'#EF4444',synthesis:'#8B5CF6'};
-var BOY='#7C6EF6',GIRL='#F472B6';
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+  document.body.innerHTML += '<div style="color:red;padding:20px;font-family:monospace">Error: ' + msg + '<br>Line: ' + lineNo + '</div>';
+  return false;
+};
+const WS_URL = window.location.protocol === 'https:' ? 'wss://' + window.location.host : 'ws://' + window.location.host;
+let ws;
+let state = {
+  connected: false,
+  sessionId: null,
+  agents: {},
+  activeAgents: new Set(),
+  busyAgents: new Set(),
+  agentActions: {},
+  messageCounts: {},
+  trustProfile: {},
+  phase: null,
+  taskCount: 0,
+  running: false,
+  finalOutput: null,
+  metrics: null,
+  decomposition: null,
+  workflowPhases: [], // Array of { phase: 'phaseId', label: 'Label', agents: [], output: '' }
+  uploadedFile: null
+};
 
-async function init(){
-  var r=await fetch('/api/sessions',{method:'POST'});var d=await r.json();state.sessionId=d.sessionId;
-  var proto=location.protocol==='https:'?'wss':'ws';
-  var ws=new WebSocket(proto+'://'+location.host+'/ws/'+d.sessionId);state.ws=ws;
-  ws.onopen=function(){state.connected=true;scheduleRender()};
-  ws.onclose=function(){state.connected=false;scheduleRender()};
-  ws.onmessage=function(e){handle(JSON.parse(e.data))};
+// Phase colors mapping
+const PC = {
+  'decomposition': '#6366f1',
+  'requirements' : '#8b5cf6',
+  'architecture' : '#ec4899',
+  'backend'      : '#f59e0b',
+  'frontend'     : '#10b981',
+  'aiml'         : '#06b6d4',
+  'synthesis'    : '#3b82f6',
+  'quality'      : '#14b8a6'
+};
+
+function esc(s) {
+  if (!s) return "";
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function handle(m){
-  switch(m.type){
-    case 'connected':m.data.agents.forEach(function(a){state.agents[a.id]=a});state.trustProfile=m.data.trustProfile||{};scheduleRender();break;
-    case 'swarm_start':state.running=true;state.log=[];state.decomposition=null;state.trailStats=null;state.metrics=null;state.finalOutput=null;state.activeAgents.clear();state.busyAgents.clear();state.agentActions={};state.agentStreams={};state.messageCounts={};state.completedSteps=0;scheduleRender();break;
-    case 'phase_change':state.phase=m.data;scheduleRender();break;
-    case 'decomposition_complete':state.decomposition=m.data;state.totalSteps=m.data.activeDomains.length+2;scheduleRender();break;
-    case 'trust_routing':break;
-    case 'trust_update':if(state.trustProfile[m.data.agentId])state.trustProfile[m.data.agentId][m.data.domain]=m.data.newTrust;scheduleRender();break;
-    case 'agent_start':state.activeAgents.add(m.data.agentId);state.busyAgents.add(m.data.agentId);state.agentActions[m.data.agentId]=(m.data.task||'').slice(0,80)+'...';state.agentStreams[m.data.agentId]='';state.messageCounts[m.data.agentId]=(state.messageCounts[m.data.agentId]||0)+1;scheduleRender();break;
-    case 'agent_token':state.agentStreams[m.data.agentId]=(state.agentStreams[m.data.agentId]||'')+m.data.token;state.agentActions[m.data.agentId]=state.agentStreams[m.data.agentId].slice(-120);updateToken(m.data.agentId);break;
-    case 'agent_complete':state.busyAgents.delete(m.data.agentId);state.agentActions[m.data.agentId]=null;state.agentStreams[m.data.agentId]='';state.completedSteps++;state.log.push({agentId:m.data.agentId,name:m.data.name,output:m.data.output,artifactType:m.data.artifactType,domain:m.data.domain,confidence:m.data.confidence,pheromone:m.data.pheromone,agent:state.agents[m.data.agentId]});scheduleRender();break;
-    case 'swarm_complete':state.running=false;state.phase=null;state.metrics=m.data.metrics;state.finalOutput=m.data.finalOutput||null;state.taskCount++;scheduleRender();break;
+function parseFiles(text) {
+  if(!text) return [];
+  const files = [];
+  const lines = text.split("\\n");
+  let currentFile = null;
+  let currentCode = [];
+  
+  for(let i=0; i<lines.length; i++){
+    const line = lines[i];
+    if(line.startsWith("// FILE:")){
+      if(currentFile) {
+        files.push({ name: currentFile, code: currentCode.join("\\n").trim() });
+      }
+      currentFile = line.substring(8).trim();
+      currentCode = [];
+      // Skip the optional javascript/python block start
+      if(i+1 < lines.length && lines[i+1].startsWith("\`\`\`")) i++;
+    } else if (currentFile) {
+      if(line.startsWith("\`\`\`")) {
+        files.push({ name: currentFile, code: currentCode.join("\\n").trim() });
+        currentFile = null;
+        currentCode = [];
+      } else {
+        currentCode.push(line);
+      }
+    }
   }
-}
-
-function submit(t){if(!t||!t.trim()||state.running||!state.ws)return;state.ws.send(JSON.stringify({type:'run_task',task:t}))}
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function md(s){
-  return esc(s)
-    .replace(/^### (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:#c4b5fd;margin:8px 0 4px">$1</div>')
-    .replace(/^## (.+)$/gm,'<div style="font-size:13px;font-weight:700;color:#e0e0e0;margin:10px 0 5px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:4px">$1</div>')
-    .replace(/^# (.+)$/gm,'<div style="font-size:14px;font-weight:800;color:#fff;margin:12px 0 6px">$1</div>')
-    .replace(/\\*\\*(.+?)\\*\\*/g,'<strong style="color:#f0f0f0">$1</strong>')
-    .replace(/^- (.+)$/gm,'<div style="padding-left:12px;margin:2px 0"><span style="color:#8B5CF6;margin-right:5px">&#8226;</span>$1</div>')
-    .replace(/\\n/g,'<br>');
-}
-function parseFiles(s){
-  if(!s)return[];
-  var parts=s.split(/\\/\\/ FILE: |# FILE: /);
-  var files=[];
-  for(var i=1;i<parts.length;i++){
-    var lines=parts[i].split('\\n');
-    var name=lines[0].trim();
-    var code=lines.slice(1).join('\\n').trim();
-    if(name&&code)files.push({name:name,code:code});
+  if(currentFile && currentCode.length > 0) {
+    files.push({ name: currentFile, code: currentCode.join("\\n").trim() });
   }
   return files;
 }
-function renderCode(s){
-  var files=parseFiles(s);
-  if(files.length===0)return '<div class="fo-body">'+md(s)+'</div>';
-  var h='<div class="dl-bar"><button onclick="downloadAll()">&#11015; Download All Files</button><span class="dl-info">'+files.length+' file'+(files.length===1?'':'s')+' generated</span></div>';
-  h+='<div class="fo-body">';
-  files.forEach(function(f,i){
-    h+='<div class="file-card"><div class="file-card-head"><span class="fname">'+esc(f.name)+'</span><button onclick="copyFile('+i+')">Copy</button></div><div class="file-card-code" id="fc-'+i+'">'+esc(f.code)+'</div></div>';
+
+function renderMD(text) {
+  if (!text) return "";
+  return esc(text)
+    .replace(/^### (.*$)/gm, '<div class="md-h3">$1</div>')
+    .replace(/^## (.*$)/gm, '<div class="md-h2">$1</div>')
+    .replace(/^# (.*$)/gm, '<div class="md-h1">$1</div>')
+    .replace(/\\*\\*(.*?)\\*\\*/g, '<span class="md-strong">$1</span>')
+    .replace(/^\\- (.*$)/gm, '<div class="md-li">$1</div>')
+    .replace(/\\n/g, '<br>');
+}
+
+function renderCode(text) {
+  const files = parseFiles(text);
+  if (files.length === 0) return '<div class="fo-body">' + renderMD(text) + '</div>';
+  
+  let h = '<div class="dl-bar">';
+  h += '<button class="btn-dl" onclick="downloadAll()">📦 Download All Files</button>';
+  h += '<span class="dl-info">' + files.length + ' files generated</span>';
+  h += '</div><div class="fo-body">';
+  
+  files.forEach((f, i) => {
+    h += '<div class="file-card">';
+    h += '<div class="file-card-head">';
+    h += '<div class="fc-name">' + esc(f.name) + '</div>';
+    h += '<button class="fc-btn" onclick="copyCode(' + i + ')">📋 Copy</button>';
+    h += '</div>';
+    h += '<div class="file-card-code" id="code-' + i + '">' + esc(f.code) + '</div>';
+    h += '</div>';
   });
-  h+='</div>';
+  h += '</div>';
+  window.__LAST_FILES = files;
   return h;
 }
-function copyFile(i){
-  var el=document.getElementById('fc-'+i);
-  if(el){navigator.clipboard.writeText(el.textContent).then(function(){var btns=document.querySelectorAll('.file-card-head button');if(btns[i]){btns[i].textContent='Copied!';setTimeout(function(){btns[i].textContent='Copy'},1500)}})}
-}
-function downloadAll(){
-  var files=parseFiles(state.finalOutput);
-  if(files.length===0)return;
-  var text=files.map(function(f){return '// FILE: '+f.name+'\\n'+f.code}).join('\\n\\n');
-  var blob=new Blob([text],{type:'text/plain'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='hivemind-project.txt';a.click();URL.revokeObjectURL(a.href);
+
+window.copyCode = function(idx) {
+  if(!window.__LAST_FILES || !window.__LAST_FILES[idx]) return;
+  navigator.clipboard.writeText(window.__LAST_FILES[idx].code);
+  alert("Copied " + window.__LAST_FILES[idx].name + " to clipboard");
 }
 
-var renderPending=false;
+window.downloadAll = function() {
+  alert("In a full build, this would trigger a .zip download of all files.");
+};
+
+window.closeModal = function() {
+  document.getElementById('resultModal').classList.remove('active');
+};
+
+async function init() {
+  try {
+    const r = await fetch('/api/sessions', { method: 'POST' });
+    const d = await r.json();
+    state.sessionId = d.sessionId;
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = proto + '://' + location.host + '/ws/' + d.sessionId;
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => { state.connected = true; render(); };
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      switch (msg.type) {
+        case 'connected':
+          msg.data.agents.forEach(a => { state.agents[a.id] = a; });
+          state.trustProfile = msg.data.trustProfile || {};
+          render();
+          break;
+        case 'swarm_start':
+          state.running = true;
+          state.decomposition = null;
+          state.metrics = null;
+          state.finalOutput = null;
+          state.activeAgents.clear();
+          state.busyAgents.clear();
+          state.agentActions = {};
+          state.messageCounts = {};
+          render();
+          break;
+        case 'phase_change':
+          state.phase = msg.data;
+          if (state.running && state.phase) {
+            const lastPhase = state.workflowPhases[state.workflowPhases.length - 1];
+            if (!lastPhase || lastPhase.phase !== state.phase.phase) {
+              state.workflowPhases.push({
+                phase: state.phase.phase,
+                label: state.phase.label,
+                agents: Array.from(state.activeAgents),
+                actions: []
+              });
+            }
+          }
+          render();
+          break;
+        case 'decomposition_complete':
+          state.decomposition = msg.data;
+          render();
+          break;
+        case 'trust_update':
+          if (state.trustProfile[msg.data.agentId]) {
+            state.trustProfile[msg.data.agentId][msg.data.domain] = msg.data.newTrust;
+          }
+          render();
+          break;
+        case 'agent_start':
+          state.activeAgents.add(msg.data.agentId);
+          state.busyAgents.add(msg.data.agentId);
+          state.agentActions[msg.data.agentId] = (msg.data.task || '').slice(0, 80) + '...';
+          state.messageCounts[msg.data.agentId] = (state.messageCounts[msg.data.agentId] || 0) + 1;
+          render();
+          break;
+        case 'agent_token':
+          state.agentActions[msg.data.agentId] = (state.agentActions[msg.data.agentId] + msg.data.token).slice(-120);
+          break;
+        case 'agent_complete':
+          state.busyAgents.delete(msg.data.agentId);
+          state.agentActions[msg.data.agentId] = null;
+          
+          if (state.workflowPhases.length > 0 && msg.data.output) {
+            const currentPhase = state.workflowPhases[state.workflowPhases.length - 1];
+            currentPhase.actions = currentPhase.actions || [];
+            const agent = state.agents[msg.data.agentId];
+            currentPhase.actions.push({
+              agent: agent ? agent.name : msg.data.agentId,
+              action: msg.data.output.slice(0, 200) + '...',
+              time: new Date().toLocaleTimeString()
+            });
+            if (currentPhase.actions.length > 50) currentPhase.actions.shift();
+          }
+          render();
+          break;
+        case 'swarm_complete':
+          state.running = false;
+          state.phase = null;
+          state.metrics = msg.data.metrics;
+          state.finalOutput = msg.data.finalOutput || null;
+          state.taskCount++;
+          render();
+          break;
+      }
+    };
+    ws.onclose = () => {
+      state.connected = false;
+      setTimeout(init, 3000);
+      render();
+    };
+  } catch (err) {
+    console.error("Failed to init session", err);
+    setTimeout(init, 3000);
+  }
+}
+
+async function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!state.sessionId) {
+    alert("Not connected to server yet.");
+    return;
+  }
+  if(file.size > 2 * 1024 * 1024) {
+    alert("File too large (max 2MB)");
+    return;
+  }
+  
+  try {
+    const text = await file.text();
+    const res = await fetch('/api/upload/' + state.sessionId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain', 'x-filename': file.name },
+      body: text
+    });
+    if(res.ok) {
+      state.uploadedFile = file.name;
+      render();
+    } else {
+      alert("Upload failed");
+    }
+  } catch(err) {
+    alert("Error reading file: " + err);
+  }
+}
+
+function submit(taskStr) {
+  if (!taskStr.trim() || !state.connected || state.running) return;
+  state.running = true;
+  state.finalOutput = null;
+  state.metrics = null;
+  state.decomposition = null;
+  state.workflowPhases = [];
+  ws.send(JSON.stringify({ type: "run_task", task: taskStr }));
+  render();
+}
+
+let renderPending = false;
 function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(function(){renderPending=false;render()})}
 
-function updateToken(agentId){
-  var el=document.getElementById('ac-'+agentId);
-  if(!el)return;
-  var a=state.agents[agentId];if(!a)return;
-  var action=state.agentActions[agentId];
-  var busy=state.busyAgents.has(agentId);
-  var actEl=el.querySelector('.action');
-  if(action){
-    var html=esc(action.slice(-100))+(busy?'<span class="si"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':'');
-    if(actEl){actEl.innerHTML=html}
-    else{actEl=document.createElement('div');actEl.className='action';actEl.style.cssText='color:'+a.color+';border-color:'+a.color;actEl.innerHTML=html;el.appendChild(actEl)}
-  }else if(actEl){actEl.remove()}
-  var boyBub=document.getElementById('bub-boy');
-  var girlBub=document.getElementById('bub-girl');
-  if(boyBub&&action){
-    var busyList=Array.from(state.busyAgents);
-    var idx=busyList.indexOf(agentId);
-    if(idx%2===0&&boyBub){boyBub.className='char-bubble on';boyBub.style.borderColor=a.color+'40';boyBub.style.color=a.color;boyBub.textContent=a.emoji+' '+action.slice(-30)}
-    if(idx%2===1&&girlBub){girlBub.className='char-bubble on';girlBub.style.borderColor=a.color+'40';girlBub.style.color=a.color;girlBub.textContent=a.emoji+' '+action.slice(-30)}
-  }
-}
-
-function charState(){
-  if(!state.running&&state.metrics)return 'done';
-  if(state.running&&state.busyAgents.size>0)return 'working';
-  if(state.running)return 'working';
-  return 'idle';
-}
-
-function buildChar(gender,color){
-  var cs=charState();
-  var s='<div class="char '+cs+'">';
-  s+='<div class="char-bubble" id="bub-'+gender+'"></div>';
-  s+='<div class="cn" style="color:'+color+'">'+(gender==='boy'?'He builds':'She creates')+'</div>';
-  s+='<div class="cw">';
-  s+='<div class="c-head" style="background:#fdd8c4;border:2px solid '+color+'40">';
-  s+='<div class="c-eyes"><div class="c-eye"></div><div class="c-eye"></div></div>';
-  s+='<div class="c-mouth"></div>';
-  s+='<div class="c-blush bl" style="background:'+color+'"></div>';
-  s+='<div class="c-blush br" style="background:'+color+'"></div>';
-  s+='</div>';
-  if(gender==='boy'){
-    s+='<div class="h-boy">';
-    s+='<div class="h-spike" style="border-bottom:10px solid '+color+'"></div>';
-    s+='<div class="h-spike" style="border-bottom:13px solid '+color+'"></div>';
-    s+='<div class="h-spike" style="border-bottom:11px solid '+color+'"></div>';
-    s+='<div class="h-spike" style="border-bottom:9px solid '+color+'"></div>';
-    s+='</div>';
-  }else{
-    s+='<div class="h-girl" style="background:'+color+'80">';
-    s+='<div class="h-side hl" style="background:'+color+'80"></div>';
-    s+='<div class="h-side hr" style="background:'+color+'80"></div>';
-    s+='<div class="h-bow" style="color:'+color+'">';
-    s+='<div class="h-bow-dot" style="background:'+color+'"></div>';
-    s+='</div></div>';
-  }
-  s+='<div class="c-torso" style="background:'+color+'25;border:2px solid '+color+'40"></div>';
-  s+='<div class="c-arm al" style="background:'+color+'50"></div>';
-  s+='<div class="c-arm ar" style="background:'+color+'50"></div>';
-  s+='<div class="c-leg ll" style="background:'+color+'30"></div>';
-  s+='<div class="c-leg lr" style="background:'+color+'30"></div>';
-  s+='<div class="c-foot fl" style="background:'+color+'"></div>';
-  s+='<div class="c-foot fr" style="background:'+color+'"></div>';
-  s+='<div class="c-laptop">';
-  s+='<div class="lp-screen" style="background:'+color+'20;border-color:'+color+'40">';
-  s+='<div class="sc-lines">';
-  s+='<div class="sc-line" style="background:'+color+';width:70%"></div>';
-  s+='<div class="sc-line" style="background:'+color+';width:50%"></div>';
-  s+='<div class="sc-line" style="background:'+color+';width:85%"></div>';
-  s+='</div></div>';
-  s+='<div class="lp-base" style="background:'+color+'50"></div>';
-  s+='</div>';
-  s+='<div class="c-desk" style="background:'+color+'12;border:1px solid '+color+'20"></div>';
-  s+='<div class="c-shadow" style="background:'+color+'"></div>';
-  s+='</div>';
-  if(cs==='done'){
-    s+='<div class="c-sparkle" style="color:'+color+';top:-8px;left:5px;animation-delay:0s"></div>';
-    s+='<div class="c-sparkle" style="color:'+color+';top:-14px;right:5px;animation-delay:.3s"></div>';
-    s+='<div class="c-sparkle" style="color:'+color+';top:0;right:-10px;animation-delay:.6s"></div>';
-  }
-  s+='</div>';
-  return s;
-}
-
-function stars(){
-  var s='';
-  for(var i=0;i<50;i++){
-    var x=Math.random()*100,y=Math.random()*100,d=Math.random()*4,sz=1+Math.random()*2;
-    s+='<div class="canvas-star" style="left:'+x+'%;top:'+y+'%;width:'+sz+'px;height:'+sz+'px;animation-delay:'+d+'s"></div>';
-  }
-  return s;
-}
-
 function render(){
-  var app=document.getElementById('app');
-  var al=Object.values(state.agents);
-  var cs=charState();
-  var h='';
-  h+='<div class="header">';
-  h+='<div class="logo">&#x1f9ec;</div>';
-  h+='<div><h1>SESI Protocol</h1><p class="sub">Stigmergic Epistemic Swarm Intelligence &middot; '+al.length+' agents &middot; '+state.taskCount+' task'+(state.taskCount===1?'':'s')+'</p></div>';
-  if(state.phase){var pc=PC[state.phase.phase]||'#8B5CF6';h+='<div class="phase-badge"><div class="phase-dot" style="background:'+pc+'"></div><span class="phase-label" style="color:'+pc+'">'+state.phase.label+'</span></div>'}
-  h+='<div class="conn-info">'+(state.connected?'<span style="color:#10B981">&#9679; Live</span>':'Connecting...')+' &middot; '+(state.sessionId||'...')+'</div>';
-  h+='</div>';
-  h+='<div class="main">';
-  h+='<div class="sidebar"><div class="sidebar-title">Agent Fleet + Trust</div>';
-  al.forEach(function(a){
-    var active=state.activeAgents.has(a.id),busy=state.busyAgents.has(a.id);
-    var action=state.agentActions[a.id],count=state.messageCounts[a.id]||0;
-    var tp=state.trustProfile[a.id]||{};
-    var entries=Object.entries(tp).sort(function(x,y){return(y[1].expected||0)-(x[1].expected||0)});
-    var best=entries[0];var trustPct=best?Math.round((best[1].expected||0)*100):0;
-    h+='<div class="agent-card'+(active?' active':'')+'" id="ac-'+a.id+'" style="border-color:'+(active?a.color:'rgba(255,255,255,.06)')+';'+(active?'box-shadow:0 0 20px '+a.color+'18;background:'+a.color+'08':'')+'">';
-    if(busy)h+='<div class="sweep-bar" style="background:linear-gradient(90deg,transparent,'+a.color+',transparent)"></div>';
-    h+='<div class="ac-head"><span class="emoji">'+a.emoji+'</span><div style="flex:1"><div class="name">'+a.name+'</div><div class="role" style="color:'+a.color+'">'+a.role+'</div></div>';
-    if(count)h+='<span class="badge" style="background:'+a.color+'">'+count+'</span>';
-    h+='</div>';
-    if(best)h+='<div class="trust-bar"><div class="trust-fill" style="width:'+trustPct+'%;background:'+a.color+'"></div></div><div class="trust-label">Trust: '+trustPct+'% in '+best[0]+'</div>';
-    if(action)h+='<div class="action" style="color:'+a.color+';border-color:'+a.color+'">'+esc(action.slice(-100))+(busy?'<span class="si"><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span><span style="background:'+a.color+'"></span></span>':'')+'</div>';
-    h+='</div>';
-  });
-  h+='</div>';
-  h+='<div class="content">';
-  h+='<div class="input-area"><div class="input-row">';
-  h+='<input id="ti" placeholder="Describe a task \\u2014 SESI agents will decompose, route by trust, and collaborate..." '+(state.running?'disabled':'')+' onkeydown="if(event.key===\\'Enter\\')submit(this.value)">';
-  h+='<button class="btn-deploy" onclick="submit(document.getElementById(\\'ti\\').value)" '+(state.running?'disabled':'')+'>Deploy SESI</button>';
-  h+='</div>';
-  h+='<div class="presets">';
-  var ps=["Build a SaaS MVP with auth and billing","Architect a scalable microservices system","Write a technical deep-dive on event sourcing","Create a real-time chat architecture","Design a CI/CD pipeline for Kubernetes"];
-  ps.forEach(function(p){h+='<button onclick="document.getElementById(\\'ti\\').value=\\''+p+'\\'">'+p+'</button>'});
-  h+='</div></div>';
-  h+='<div class="canvas-area">';
-  h+='<div class="canvas-glow g1"></div><div class="canvas-glow g2"></div>';
-  h+='<div class="canvas-stars">'+stars()+'</div>';
-  h+='<div class="canvas-floor"></div>';
-  h+='<div class="chars-wrap">'+buildChar('boy',BOY)+buildChar('girl',GIRL)+'</div>';
-  if(cs==='idle')h+='<div class="canvas-msg">Enter a task above \\u2014 the agents will start building!</div>';
-  h+='</div>';
-  if(state.phase||state.metrics){
-    h+='<div class="status-bar">';
-    if(state.phase){var pc2=PC[state.phase.phase]||'#8B5CF6';h+='<div class="pi" style="color:'+pc2+'">'+state.phase.label+'</div>'}
-    if(state.decomposition)h+='<span style="font-size:9px;color:rgba(255,255,255,.2)">'+state.decomposition.activeDomains.length+' domains &middot; '+state.decomposition.phases.length+' phases</span>';
-    h+='<div class="sts">';
-    if(state.metrics)h+='<span style="color:#F59E0B">'+state.metrics.agentCalls+' calls</span> &middot; <span style="color:#10B981">'+(state.metrics.pheromoneTrail&&state.metrics.pheromoneTrail.total||0)+' artifacts</span> &middot; <span style="color:#8B5CF6">'+(state.metrics.duration/1000).toFixed(1)+'s</span>';
-    h+='</div></div>';
+  const app = document.getElementById('app');
+  const al = Object.values(state.agents);
+  
+  let h = '<div class="header">';
+  h += '<div class="logo"><div class="logo-icon">&#x1f9ec;</div> Hivemind</div>';
+  h += '<div class="conn-info"><div class="status-dot" style="background:' + (state.connected ? '#10b981' : '#f43f5e') + '"></div>' + (state.connected ? 'Connected' : 'Reconnecting...') + '</div>';
+  h += '</div>';
+  
+  h += '<div class="main-view">';
+  
+  // Conditionally render Sidebar only when task is running or completed
+  if (state.running || state.metrics) {
+    h += '<div class="sidebar">';
+    h += '<div class="sb-title">Active Fleet</div>';
+    
+    al.forEach(a => {
+      const active = state.activeAgents.has(a.id);
+      const action = state.agentActions[a.id];
+      const count = state.messageCounts[a.id] || 0;
+      
+      let tp = state.trustProfile[a.id] || {};
+      let entries = Object.entries(tp).sort((x,y) => (y[1].expected||0)-(x[1].expected||0));
+      let best = entries[0];
+      let trustPct = best ? Math.round((best[1].expected||0)*100) : 0;
+      
+      h += '<div class="agent-card ' + (active ? 'active' : '') + '">';
+      h += '<div class="ac-head">';
+      h += '<div class="ac-icon">' + a.emoji + '</div>';
+      h += '<div class="ac-info"><div class="ac-name">' + a.name + '</div><div class="ac-role">' + a.role + '</div></div>';
+      if (count > 0) h += '<div style="font-size:10px;color:#9ca3af">' + count + ' msgs</div>';
+      h += '</div>';
+      
+      if (best) {
+        h += '<div class="ac-trust"><div class="ac-trust-fill" style="width:' + trustPct + '%;background:' + a.color + '"></div></div>';
+      }
+      
+      if (action) {
+        h += '<div class="ac-action" style="border-left-color:' + a.color + '">' + esc(action.slice(-80)) + '</div>';
+      }
+      h += '</div>';
+    });
+    h += '</div>';
   }
-  if(state.finalOutput||(!state.running&&state.metrics)){
-    h+='<div class="output-panel">';
-    if(!state.running&&state.metrics){
-      h+='<div class="complete-banner"><div class="cb-title">&#10024; SESI Task Complete</div><div class="cb-sub">'+state.metrics.agentCalls+' agent calls &middot; '+(state.metrics.pheromoneTrail&&state.metrics.pheromoneTrail.total||0)+' artifacts &middot; trust updated</div>';
-      h+='<div class="cb-metrics"><div class="cb-metric">Duration: <span>'+(state.metrics.duration/1000).toFixed(1)+'s</span></div><div class="cb-metric">Domains: <span>'+(state.metrics.decomposition&&state.metrics.decomposition.activeDomains||0)+'</span></div><div class="cb-metric">Phases: <span>'+(state.metrics.decomposition&&state.metrics.decomposition.phases||0)+'</span></div><div class="cb-metric">Tokens: <span>~'+state.metrics.tokensEstimate+'</span></div></div></div>'
+  
+  h += '<div class="workspace">';
+  
+  if (!state.running && !state.metrics) {
+    // ---------------------------------------------------------
+    // LANDING PAGE (IDLE STATE)
+    // ---------------------------------------------------------
+    h += '<div class="landing">';
+    h += '<h2 class="landing-title">What can Hivemind build for you?</h2>';
+    h += '<div class="input-container">';
+    h += '<div class="prompt-box">';
+    h += '<textarea id="ti" class="prompt-input" placeholder="Describe an application, architecture, or workflow..."></textarea>';
+    h += '<div class="prompt-actions">';
+    h += '<label class="btn-icon ' + (state.uploadedFile ? 'has-file' : '') + '" title="Upload Context File">';
+    h += '<input type="file" style="display:none" onchange="handleFileUpload(event)">';
+    h += '📎</label>';
+    if (state.uploadedFile) {
+      h += '<span style="font-size:12px;color:#4f46e5;margin-left:12px;font-weight:500">' + esc(state.uploadedFile) + ' attached</span>';
     }
-    if(state.finalOutput){
-      h+='<div class="final-output"><div class="fo-header"><span style="font-size:16px">&#128203;</span><span class="fo-label">Final Deliverable</span></div>'+renderCode(state.finalOutput)+'</div>'
+    h += '<button class="btn-submit" onclick="submit(document.getElementById(\\'ti\\').value)">Run Swarm 🚀</button>';
+    h += '</div></div></div>'; // end input-container
+    
+    h += '<div class="presets-grid">';
+    const presets = [
+      { t: "Build a SaaS API", d: "Node.js REST API with auth, rate limiting, and Postgres schemas." },
+      { t: "React Dashboard", d: "Frontend admin dashboard using Tailwind and Recharts." },
+      { t: "Microservices Plan", d: "Architecture document for migrating a monolith to Kubernetes." },
+      { t: "Data Pipeline", d: "Python scripts for ETL processing and analytics." }
+    ];
+    presets.forEach(p => {
+      h += '<div class="preset-card" onclick="document.getElementById(\\'ti\\').value=\\'' + p.t + ': ' + p.d + '\\'"><div class="preset-title">' + p.t + '</div><div class="preset-desc">' + p.d + '</div></div>';
+    });
+    h += '</div>';
+    
+    h += '</div>'; // end landing
+  } else {
+    // ---------------------------------------------------------
+    // ACTIVE WORKFLOW VIEW
+    // ---------------------------------------------------------
+    h += '<div class="top-task-bar">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:' + (state.running ? '#f59e0b' : '#10b981') + '"></div>';
+    h += '<input class="tt-input" value="Current Task..." readonly>';
+    if (state.finalOutput) {
+      h += '<button class="tt-btn" onclick="document.getElementById(\\'resultModal\\').classList.add(\\'active\\')">View Deliverable</button>';
     }
-    h+='</div>';
+    h += '</div>';
+    
+    h += '<div class="workflow-view active">';
+    
+    if (state.workflowPhases.length === 0 && state.running) {
+      h += '<div style="margin:auto;color:#6b7280;font-size:14px;display:flex;align-items:center;gap:12px">Initializing Swarm Intelligence... <div class="status-dot" style="animation:pulseGlow 1.5s infinite;background:#6366f1"></div></div>';
+    }
+    
+    state.workflowPhases.forEach((phase, idx) => {
+      const pc = PC[phase.phase] || '#6366f1';
+      h += '<div class="wf-page">';
+      h += '<div class="wf-head"><span style="font-size:16px">📄</span><div class="wf-agent">' + phase.label + ' Phase</div><div class="wf-badge">' + (phase.agents ? phase.agents.length : 0) + ' Agents</div></div>';
+      h += '<div class="wf-body">';
+      
+      // Render stored actions
+      const actions = phase.actions || [];
+      [...actions].reverse().forEach(act => {
+        h += '<div style="margin-bottom:12px;border-left:2px solid ' + pc + ';padding-left:12px">';
+        h += '<div style="font-size:10px;font-weight:600;color:#9ca3af;margin-bottom:4px">' + esc(act.agent) + ' · ' + esc(act.time) + '</div>';
+        h += '<div style="font-family:\\'JetBrains Mono\\',monospace">' + esc(act.action) + '</div>';
+        h += '</div>';
+      });
+      
+      h += '</div></div>';
+      
+      // Add arrow if not the last phase
+      if (idx < state.workflowPhases.length - 1) {
+        h += '<div class="wf-connector"><div class="wf-arrow"></div></div>';
+      } else if (state.running) {
+        // Active arrow at the end
+        h += '<div class="wf-connector"><div class="wf-arrow active"></div></div>';
+      }
+    });
+    
+    h += '</div>'; // end workflow-view
   }
-  h+='</div></div>';
-  app.innerHTML=h;
+  
+  h += '</div>'; // end workspace
+  h += '</div>'; // end main-view
+  
+  // Result Modal
+  if (state.finalOutput) {
+    h += '<div class="result-modal ' + (state.running ? '' : 'active') + '" id="resultModal">';
+    h += '<div class="rm-content">';
+    h += '<div class="rm-header">';
+    h += '<div class="rm-title">✨ Final Deliverable</div>';
+    h += '<button class="rm-close" onclick="closeModal()">&times;</button>';
+    h += '</div>';
+    h += '<div class="rm-body">';
+    h += renderCode(state.finalOutput);
+    h += '</div></div></div>';
+  }
+  
+  app.innerHTML = h;
+  
+  // Auto-scroll workflow view to the right
+  const wfView = document.querySelector('.workflow-view');
+  if (wfView) wfView.scrollLeft = wfView.scrollWidth;
 }
-render();init();
+
+render();
+init();
 </script>
 </body>
 </html>
