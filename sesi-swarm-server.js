@@ -1421,8 +1421,16 @@ body{background:#f9fafb;color:#111827;font-family:'Inter',system-ui,sans-serif;h
 .preset-desc{font-size:12px;color:#6b7280}
 
 /* Active Workflow View */
-.workflow-view{position:relative;flex:1;background:#fafafa;padding:24px;overflow-x:auto;overflow-y:hidden;display:none;align-items:flex-start;gap:32px}
+.workflow-view{position:relative;flex:1;background:#fafafa;padding:24px 24px 12px;overflow-x:scroll;overflow-y:hidden;display:none;align-items:flex-start;gap:32px;scrollbar-gutter:stable both-edges;scrollbar-width:thin;scrollbar-color:#9ca3af #e5e7eb}
 .workflow-view.active{display:flex}
+.workflow-view::-webkit-scrollbar{width:12px;height:12px}
+.workflow-view::-webkit-scrollbar-track{background:#e5e7eb;border-radius:8px}
+.workflow-view::-webkit-scrollbar-thumb{background:#9ca3af;border-radius:8px;border:2px solid #e5e7eb}
+.workflow-view::-webkit-scrollbar-thumb:hover{background:#6b7280}
+.canvas-scrollbar{padding:0 24px 14px;background:#fafafa}
+.canvas-scrollbar input{width:100%;appearance:none;height:10px;border-radius:999px;background:#e5e7eb;outline:none}
+.canvas-scrollbar input::-webkit-slider-thumb{appearance:none;width:28px;height:16px;border-radius:999px;background:#6b7280;cursor:ew-resize}
+.canvas-scrollbar input::-moz-range-thumb{width:28px;height:16px;border:0;border-radius:999px;background:#6b7280;cursor:ew-resize}
 
 .wf-page{width:340px;height:calc(100vh - 160px);background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.02);display:flex;flex-direction:column;flex-shrink:0;animation:fadeIn .4s ease}
 .wf-head{padding:12px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px;background:#f9fafb;border-radius:12px 12px 0 0}
@@ -1490,7 +1498,8 @@ let state = {
   workflowPhases: [], // Array of { phase: 'phaseId', label: 'Label', agents: [], output: '' }
   uploadedFile: null,
   currentTaskText: '',
-  lastError: null
+  lastError: null,
+  followCanvas: true
 };
 
 // Phase colors mapping
@@ -1617,6 +1626,7 @@ async function init() {
         case 'swarm_start':
           state.running = true;
           state.lastError = null;
+          state.followCanvas = true;
           state.decomposition = null;
           state.metrics = null;
           state.finalOutput = null;
@@ -1768,39 +1778,37 @@ function render(){
   
   h += '<div class="main-view">';
   
-  // Conditionally render Sidebar only when task is running or completed
-  if (state.running || state.metrics) {
-    h += '<div class="sidebar">';
-    h += '<div class="sb-title">Active Fleet</div>';
+  // Always render Sidebar to keep layout stable and avoid flicker/jumps
+  h += '<div class="sidebar">';
+  h += '<div class="sb-title">Active Fleet</div>';
+  
+  al.forEach(a => {
+    const active = state.activeAgents.has(a.id);
+    const action = state.agentActions[a.id];
+    const count = state.messageCounts[a.id] || 0;
     
-    al.forEach(a => {
-      const active = state.activeAgents.has(a.id);
-      const action = state.agentActions[a.id];
-      const count = state.messageCounts[a.id] || 0;
-      
-      let tp = state.trustProfile[a.id] || {};
-      let entries = Object.entries(tp).sort((x,y) => (y[1].expected||0)-(x[1].expected||0));
-      let best = entries[0];
-      let trustPct = best ? Math.round((best[1].expected||0)*100) : 0;
-      
-      h += '<div class="agent-card ' + (active ? 'active' : '') + '">';
-      h += '<div class="ac-head">';
-      h += '<div class="ac-icon">' + a.emoji + '</div>';
-      h += '<div class="ac-info"><div class="ac-name">' + a.name + '</div><div class="ac-role">' + a.role + '</div></div>';
-      if (count > 0) h += '<div style="font-size:10px;color:#9ca3af">' + count + ' msgs</div>';
-      h += '</div>';
-      
-      if (best) {
-        h += '<div class="ac-trust"><div class="ac-trust-fill" style="width:' + trustPct + '%;background:' + a.color + '"></div></div>';
-      }
-      
-      if (action) {
-        h += '<div class="ac-action" style="border-left-color:' + a.color + '">' + esc(action.slice(-80)) + '</div>';
-      }
-      h += '</div>';
-    });
+    let tp = state.trustProfile[a.id] || {};
+    let entries = Object.entries(tp).sort((x,y) => (y[1].expected||0)-(x[1].expected||0));
+    let best = entries[0];
+    let trustPct = best ? Math.round((best[1].expected||0)*100) : 0;
+    
+    h += '<div class="agent-card ' + (active ? 'active' : '') + '">';
+    h += '<div class="ac-head">';
+    h += '<div class="ac-icon">' + a.emoji + '</div>';
+    h += '<div class="ac-info"><div class="ac-name">' + a.name + '</div><div class="ac-role">' + a.role + '</div></div>';
+    if (count > 0) h += '<div style="font-size:10px;color:#9ca3af">' + count + ' msgs</div>';
     h += '</div>';
-  }
+    
+    if (best) {
+      h += '<div class="ac-trust"><div class="ac-trust-fill" style="width:' + trustPct + '%;background:' + a.color + '"></div></div>';
+    }
+    
+    if (action) {
+      h += '<div class="ac-action" style="border-left-color:' + a.color + '">' + esc(action.slice(-80)) + '</div>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
   
   h += '<div class="workspace">';
   
@@ -1881,39 +1889,71 @@ function render(){
     });
     
     h += '</div>'; // end workflow-view
+    h += '<div class="canvas-scrollbar"><input id="canvasScroll" type="range" min="0" max="0" value="0" aria-label="Canvas horizontal scroll"></div>';
   }
   
   h += '</div>'; // end workspace
   
-  // Right Information Panel (Metrics & Final Output)
-  if (state.finalOutput || (!state.running && state.metrics)) {
-    h += '<div class="right-panel">';
-    h += '<div class="rp-header">✨ Final Deliverable</div>';
-    h += '<div class="rp-body">';
-    
-    if (!state.running && state.metrics) {
-      h += '<div class="metric-grid">';
-      h += '<div class="metric-box"><div class="metric-box-title">Duration</div><div class="metric-box-val">' + (state.metrics.duration/1000).toFixed(1) + 's</div></div>';
-      h += '<div class="metric-box"><div class="metric-box-title">Agent Calls</div><div class="metric-box-val">' + state.metrics.agentCalls + '</div></div>';
-      h += '<div class="metric-box"><div class="metric-box-title">Tokens</div><div class="metric-box-val">~' + state.metrics.tokensEstimate + '</div></div>';
-      h += '<div class="metric-box"><div class="metric-box-title">Artifacts</div><div class="metric-box-val">' + (state.metrics.pheromoneTrail && state.metrics.pheromoneTrail.total || 0) + '</div></div>';
-      h += '</div>';
-    }
-    
-    if (state.finalOutput) {
-      h += renderCode(state.finalOutput);
-    }
-    
-    h += '</div></div>';
+  // Always render right panel to keep output area persistent
+  h += '<div class="right-panel">';
+  h += '<div class="rp-header">✨ Final Deliverable</div>';
+  h += '<div class="rp-body">';
+  
+  if (!state.running && state.metrics) {
+    h += '<div class="metric-grid">';
+    h += '<div class="metric-box"><div class="metric-box-title">Duration</div><div class="metric-box-val">' + (state.metrics.duration/1000).toFixed(1) + 's</div></div>';
+    h += '<div class="metric-box"><div class="metric-box-title">Agent Calls</div><div class="metric-box-val">' + state.metrics.agentCalls + '</div></div>';
+    h += '<div class="metric-box"><div class="metric-box-title">Tokens</div><div class="metric-box-val">~' + state.metrics.tokensEstimate + '</div></div>';
+    h += '<div class="metric-box"><div class="metric-box-title">Artifacts</div><div class="metric-box-val">' + (state.metrics.pheromoneTrail && state.metrics.pheromoneTrail.total || 0) + '</div></div>';
+    h += '</div>';
   }
+
+  if (state.finalOutput) {
+    h += renderCode(state.finalOutput);
+  } else if (state.running) {
+    h += '<div style="padding:18px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;color:#374151;font-size:13px;line-height:1.6">';
+    h += '<strong>Swarm is processing...</strong><br>Live phase activity is shown in the center. Final output and files will appear here automatically.';
+    h += '</div>';
+  } else {
+    h += '<div style="padding:18px;background:#fff;border:1px dashed #d1d5db;border-radius:12px;color:#6b7280;font-size:13px;line-height:1.6">';
+    h += 'Run a task to see generated files, metrics, and final deliverable in this panel.';
+    h += '</div>';
+  }
+  
+  h += '</div></div>';
   
   h += '</div>'; // end main-view
   
   app.innerHTML = h;
   
-  // Auto-scroll workflow view to the right
+  // Keep bottom scrollbar usable: auto-follow only while user stays near the right edge.
   const wfView = document.querySelector('.workflow-view');
-  if (wfView) wfView.scrollLeft = wfView.scrollWidth;
+  const canvasScroll = document.getElementById('canvasScroll');
+  if (wfView) {
+    if (canvasScroll) {
+      const maxScroll = Math.max(0, wfView.scrollWidth - wfView.clientWidth);
+      canvasScroll.max = String(maxScroll);
+      canvasScroll.value = String(Math.min(maxScroll, wfView.scrollLeft));
+      canvasScroll.addEventListener('input', function() {
+        wfView.scrollLeft = Number(canvasScroll.value);
+        const distanceFromRight = wfView.scrollWidth - wfView.clientWidth - wfView.scrollLeft;
+        state.followCanvas = distanceFromRight < 24;
+      });
+    }
+    wfView.addEventListener('scroll', function() {
+      const distanceFromRight = wfView.scrollWidth - wfView.clientWidth - wfView.scrollLeft;
+      state.followCanvas = distanceFromRight < 24;
+      if (canvasScroll) {
+        canvasScroll.value = String(Math.min(Number(canvasScroll.max || 0), wfView.scrollLeft));
+      }
+    }, { passive: true });
+    if (state.running && state.followCanvas) {
+      wfView.scrollLeft = wfView.scrollWidth;
+      if (canvasScroll) {
+        canvasScroll.value = String(Math.min(Number(canvasScroll.max || 0), wfView.scrollLeft));
+      }
+    }
+  }
 }
 
 render();
