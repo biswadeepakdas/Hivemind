@@ -91,7 +91,7 @@ class CircuitBreaker {
    * Record a failed API call
    * @param {Error} error - The error that occurred
    */
-  recordFailure(error) {
+  recordFailure(_error) {
     this.failureCount++;
     this.lastFailureTime = Date.now();
 

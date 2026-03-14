@@ -50,7 +50,7 @@ const SYNTHESIS_THRESHOLD = 0.4;
 const REINFORCE_AMOUNT = 0.15;
 const CHALLENGE_AMOUNT = 0.20;
 const EXPLORE_THRESHOLD = 0.6;
-const CONFIDENCE_THRESHOLD = 0.5;
+const _CONFIDENCE_THRESHOLD = 0.5;
 
 // ── PheromoneTrail ───────────────────────────────────────────────────────
 
@@ -485,7 +485,7 @@ describe("EpistemicTrustModel", () => {
     model.initialize("expert", ["frontend"]);
     for (let i = 0; i < 10; i++) model.recordSuccess("expert", "frontend");
 
-    const newComp = model.getCompetence("newbie", "frontend");
+    const _newComp = model.getCompetence("newbie", "frontend");
     const expComp = model.getCompetence("expert", "frontend");
 
     assert(expComp.uncertainty < EXPLORE_THRESHOLD, "experienced agent has low uncertainty");

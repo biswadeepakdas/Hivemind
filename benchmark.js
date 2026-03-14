@@ -82,7 +82,7 @@ class LegacyHivemind {
   }
 
   // Legacy has no trust — no way to prioritize agents
-  selectAgent(domain) {
+  selectAgent(_domain) {
     return { method: "fixed-role", reasoning: "Hardcoded role mapping", adaptivity: 0 };
   }
 
@@ -261,7 +261,7 @@ class SESIBenchmark {
     let strongArtifacts = 0;
 
     for (const phase of phases) {
-      for (const d of phase.domains) {
+      for (const _d of phase.domains) {
         // Each agent only reads STRONG artifacts (pheromone > threshold), not all
         const contextForAgent = Math.min(strongArtifacts, 8) * 200; // summary of strong artifacts
         totalContext += contextForAgent + avgOutputTokens; // read context + produce output

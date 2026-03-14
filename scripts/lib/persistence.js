@@ -47,7 +47,8 @@ class TrustPersistence {
       fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), "utf8");
       fs.renameSync(tmpFile, this.trustFile);
       return true;
-    } catch {
+    } catch (err) {
+      console.warn("[TrustPersistence] Failed to save trust model:", err.message);
       return false;
     }
   }
@@ -63,7 +64,8 @@ class TrustPersistence {
       const data = JSON.parse(raw);
       if (data.version !== 2 || !data.trust) return null;
       return data.trust;
-    } catch {
+    } catch (err) {
+      console.warn("[TrustPersistence] Failed to load trust model:", err.message);
       return null;
     }
   }
@@ -92,7 +94,8 @@ class TrustPersistence {
       };
       fs.writeFileSync(filepath, JSON.stringify(payload, null, 2), "utf8");
       return true;
-    } catch {
+    } catch (err) {
+      console.warn("[TrustPersistence] Failed to save session:", err.message);
       return false;
     }
   }

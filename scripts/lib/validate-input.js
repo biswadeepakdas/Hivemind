@@ -38,8 +38,8 @@ function validateSessionId(id) {
     return { valid: false, error: "session ID is required" };
   }
 
-  // Session IDs are UUID-based (8 hex chars)
-  if (!/^[a-f0-9-]{1,36}$/i.test(id)) {
+  // Session IDs are 8 lowercase hex chars (randomUUID().slice(0, 8))
+  if (!/^[a-f0-9]{8}$/.test(id)) {
     return { valid: false, error: "invalid session ID format" };
   }
 

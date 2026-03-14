@@ -22,6 +22,52 @@ Unlike CrewAI, LangGraph, or AutoGen, SESI doesn't use fixed roles, predetermine
 
 3. **Entropic Task Decomposition** — Tasks are decomposed by measuring information entropy across 7 knowledge domains. High-entropy (uncertain) domains execute first, because resolving uncertainty early prevents wasted downstream work.
 
+## System Architecture (Bidirectional)
+
+The platform is not one-way. Users send tasks to the swarm and receive both live progress and final outputs, then provide feedback that updates trust and future routing.
+
+```mermaid
+flowchart LR
+  U[User] <--> VS[IDE Extension]
+  U <--> BR[Browser Extension]
+
+  VS --> GW[Hivemind API Gateway]
+  BR --> GW
+
+  GW --> ORCH[SESI Orchestrator]
+  ORCH --> DECOMP[Entropic Decomposition]
+  DECOMP --> ROUTE[Epistemic Trust Routing]
+  ROUTE --> AGENTS[Specialist Agents]
+  AGENTS --> TRAIL[Pheromone Trail]
+  TRAIL --> VERIFY[Trust Gate Verification]
+  VERIFY --> SYNTH[Synthesis]
+
+  SYNTH --> STREAM[Streaming + Final Output Bus]
+  STREAM --> VS
+  STREAM --> BR
+
+  U --> FEEDBACK[Approve/Reject/Refine]
+  FEEDBACK --> GW
+  FEEDBACK --> TRUST[Trust Updates]
+  TRUST --> ROUTE
+
+  subgraph Freshness
+    RETRIEVE[Retriever Connectors]
+    CACHE[Hot Cache]
+    STORE[Knowledge Store]
+  end
+
+  AGENTS --> RETRIEVE
+  RETRIEVE --> CACHE
+  RETRIEVE --> STORE
+```
+
+### User Output Channels
+
+- Real-time stream: phase changes, active agents, incremental tokens, partial artifacts
+- Final synthesis: complete deliverable package with confidence and metrics
+- Feedback loop: user actions (approve, reject, refine) feed trust updates and future task quality
+
 ## Quick Start
 
 ```bash

@@ -66,6 +66,9 @@ async function withRetry(fn, options = {}) {
  * @returns {boolean} Whether the error is retryable
  */
 function defaultShouldRetry(err) {
+  // Authentication errors — fail immediately, retrying won't help
+  if (err.status === 401 || err.status === 403) return false;
+
   // Rate limit errors
   if (err.status === 429) return true;
 

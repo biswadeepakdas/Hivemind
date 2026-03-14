@@ -6,7 +6,7 @@
  * parallel execution patterns, and context windowing.
  */
 
-import { CircuitBreaker, STATES } from "../scripts/lib/circuit-breaker.js";
+import { CircuitBreaker } from "../scripts/lib/circuit-breaker.js";
 
 // ── Minimal test harness ─────────────────────────────────────────────────
 let passed = 0;

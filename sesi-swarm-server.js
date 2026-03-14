@@ -87,6 +87,7 @@ class PheromoneTrail {
   constructor() {
     this.artifacts = [];
     this.nextId = 1;
+    this.lastDecayTime = Date.now();
   }
 
   deposit(artifact) {
@@ -126,8 +127,14 @@ class PheromoneTrail {
   }
 
   decay() {
+    const now = Date.now();
+    const elapsedMs = now - this.lastDecayTime;
+    // Scale decay by wall-clock time: 60s = 1 "phase equivalent"
+    const phaseEquivalents = Math.max(1, elapsedMs / (60 * 1000));
+    const effectiveRate = Math.min(0.5, DECAY_RATE * phaseEquivalents);
+    this.lastDecayTime = now;
     this.artifacts.forEach(a => {
-      a.pheromone = Math.max(MIN_PHEROMONE, a.pheromone * (1 - DECAY_RATE));
+      a.pheromone = Math.max(MIN_PHEROMONE, a.pheromone * (1 - effectiveRate));
     });
   }
 
@@ -174,7 +181,7 @@ class PheromoneTrail {
 
     // Keep artifacts that are strong enough OR recent enough
     this.artifacts = this.artifacts.filter(a =>
-      a.pheromone >= minPh || (now - a.timestamp) < maxAge
+      a.pheromone >= minPh || (now - a.timestamp) <= maxAge
     );
 
     // If still over hard cap, keep only the strongest
@@ -193,6 +200,7 @@ class PheromoneTrail {
   clear() {
     this.artifacts = [];
     this.nextId = 1;
+    this.lastDecayTime = Date.now();
   }
 }
 
@@ -719,7 +727,7 @@ class SESIEngine {
         this.spectators.delete(oldId);
         engineLog.info(`Evicted oldest session to make room`, { evicted: oldId, total: this.sessions.size });
       } else {
-        engineLog.warn("Max sessions reached with no completed sessions to evict", { max: MAX_SESSIONS });
+        throw new Error("Server at capacity — too many concurrent sessions");
       }
     }
 
@@ -856,9 +864,10 @@ CONFIDENCE: [0.0-1.0]`,
       });
     }
 
-    // Extract confidence from response
+    // Extract confidence from response and clamp to valid range
     const confMatch = fullResponse.match(/CONFIDENCE:\s*([\d.]+)/i);
-    const confidence = confMatch ? parseFloat(confMatch[1]) : 0.7;
+    const rawConf = confMatch ? parseFloat(confMatch[1]) : NaN;
+    const confidence = (isFinite(rawConf) && rawConf >= 0 && rawConf <= 1) ? rawConf : 0.7;
 
     // Deposit artifact to pheromone trail
     const artifact = session.trail.deposit({
@@ -869,9 +878,12 @@ CONFIDENCE: [0.0-1.0]`,
       confidence,
     });
 
-    // Reinforce referenced artifacts
-    for (const strong of trailArtifacts.slice(0, 3)) {
-      session.trail.reinforce(strong.id);
+    // Reinforce referenced artifacts — skip if this agent is writing a critique
+    // to prevent boosting artifacts that are being contradicted
+    if (artifactType !== ARTIFACT_TYPES.CRITIQUE) {
+      for (const strong of trailArtifacts.slice(0, 3)) {
+        session.trail.reinforce(strong.id);
+      }
     }
 
     session.metrics.agentCalls++;
@@ -927,7 +939,7 @@ CONFIDENCE: [0.0-1.0]`,
       `Original artifact confidence: ${artifact.confidence}\nAuthor trust: ${JSON.stringify(globalTrustModel.getCompetence(artifact.authorAgent, artifact.domain))}`
     );
 
-    const approved = result.output.includes("APPROVE");
+    const approved = result?.output?.includes("APPROVE") ?? false;
 
     if (approved) {
       globalTrustModel.recordSuccess(artifact.authorAgent, artifact.domain);
@@ -954,6 +966,11 @@ CONFIDENCE: [0.0-1.0]`,
   async executeTask(sessionId, taskText) {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error("Session not found");
+    if (session.status === "running") {
+      const err = new Error("Session already running");
+      err.status = 409;
+      throw err;
+    }
 
     session.status = "running";
     session.task = taskText;
@@ -987,7 +1004,6 @@ CONFIDENCE: [0.0-1.0]`,
 
     // ── Execute each phase ───────────────────────────────────────
     const artifactsToVerify = [];
-    let phaseIndex = 0;
 
     for (const phase of decomposition.phases) {
       const phaseStart = Date.now();
@@ -1003,7 +1019,6 @@ CONFIDENCE: [0.0-1.0]`,
       for (const domainInfo of phase.domains) {
         const domain = domainInfo.domain;
 
-        // Select agent via epistemic trust
         const candidates = Object.values(AGENT_DEFS).filter(a =>
           a.capabilities.includes(domain) && a.id !== "orchestrator" && a.id !== "reviewer"
         );
@@ -1061,7 +1076,6 @@ CONFIDENCE: [0.0-1.0]`,
       // Decay pheromone and prune zombie artifacts between phases
       session.trail.decay();
       session.trail.prune();
-      phaseIndex++;
     }
 
     // ── Epistemic Trust Gate: Verify flagged artifacts (parallel) ─
@@ -1178,9 +1192,16 @@ app.get("/api/health", (req, res) => {
 });
 
 app.post("/api/sessions", (req, res) => {
-  const sessionId = sesi.createSession();
-  log.info("Session created", { sessionId });
-  res.json({ sessionId, wsUrl: `/ws/${sessionId}`, algorithm: "SESI" });
+  try {
+    const sessionId = sesi.createSession();
+    log.info("Session created", { sessionId });
+    res.json({ sessionId, wsUrl: `/ws/${sessionId}`, algorithm: "SESI" });
+  } catch (err) {
+    if (err.message.startsWith("Server at capacity")) {
+      return res.status(503).json({ error: "Server at capacity — try again later" });
+    }
+    throw err;
+  }
 });
 
 app.post("/api/sessions/:id/run", requireApiKey(), async (req, res) => {
@@ -1192,11 +1213,16 @@ app.post("/api/sessions/:id/run", requireApiKey(), async (req, res) => {
   const taskCheck = validateTaskInput(req.body?.task);
   if (!taskCheck.valid) return res.status(400).json({ error: taskCheck.error });
 
+  const session = sesi.sessions.get(id);
+  if (!session) return res.status(404).json({ error: "Session not found" });
+  if (session.status === "running") return res.status(409).json({ error: "Session is already running" });
+
   try {
     const result = await sesi.executeTask(id, taskCheck.sanitized);
     res.json({ success: true, ...result });
   } catch (err) {
     log.error("Task execution failed", { sessionId: id, error: err.message });
+    if (err.status === 409) return res.status(409).json({ error: err.message });
     res.status(500).json({ error: "Task execution failed" });
   }
 });
@@ -1249,12 +1275,13 @@ app.use(errorHandler());
 // ═══════════════════════════════════════════════════════════════════════════
 
 wss.on("connection", (ws, req) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const sessionId = url.pathname.replace("/ws/", "");
+  // Extract session ID safely via regex — avoids Host header injection via URL parsing
+  const wsMatch = req.url.match(/^\/ws\/([a-f0-9]{8})$/);
+  const sessionId = wsMatch?.[1];
 
-  if (!sesi.sessions.has(sessionId)) {
-    const newId = sesi.createSession();
-    // re-map if needed
+  if (!sessionId || !sesi.sessions.has(sessionId)) {
+    ws.close(1008, "Invalid or unknown session");
+    return;
   }
 
   sesi.addSpectator(sessionId, ws);
@@ -1276,7 +1303,7 @@ wss.on("connection", (ws, req) => {
       } else if (msg.type === "decompose" && msg.task) {
         ws.send(JSON.stringify({ type: "decomposition", data: decomposeTask(msg.task) }));
       }
-    } catch { }
+    } catch (_) { /* ignore malformed WebSocket messages */ }
   });
 
   ws.on("close", () => sesi.removeSpectator(sessionId, ws));
@@ -1286,12 +1313,21 @@ wss.on("connection", (ws, req) => {
 //  FILE UPLOAD — attach files to session context
 // ═══════════════════════════════════════════════════════════════════════════
 
-app.post("/api/upload/:sessionId", express.text({ type: "*/*", limit: "2mb" }), (req, res) => {
+const MAX_FILES_PER_SESSION = 5;
+
+app.post("/api/upload/:sessionId", express.text({ type: "*/*", limit: "51kb" }), (req, res) => {
   const { sessionId } = req.params;
+  const idCheck = validateSessionId(sessionId);
+  if (!idCheck.valid) return res.status(400).json({ error: idCheck.error });
   const session = sesi.sessions.get(sessionId);
   if (!session) return res.status(404).json({ error: "Session not found" });
-  const filename = req.headers["x-filename"] || "uploaded-file.txt";
   if (!session.uploadedFiles) session.uploadedFiles = [];
+  if (session.uploadedFiles.length >= MAX_FILES_PER_SESSION) {
+    return res.status(429).json({ error: `Too many files — maximum ${MAX_FILES_PER_SESSION} per session` });
+  }
+  // Sanitize filename: allow only safe characters, cap length
+  const rawFilename = req.headers["x-filename"] || "";
+  const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100) || "uploaded-file.txt";
   session.uploadedFiles.push({ name: filename, content: req.body.slice(0, 50000) });
   res.json({ ok: true, filename, files: session.uploadedFiles.length });
 });
@@ -1334,8 +1370,17 @@ body{background:#f9fafb;color:#111827;font-family:'Inter',system-ui,sans-serif;h
 .main-view{display:flex;flex:1;overflow:hidden}
 
 /* Sidebar */
-.sidebar{width:280px;border-right:1px solid #e5e7eb;background:#f3f4f6;padding:16px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.sidebar{width:280px;flex-shrink:0;border-right:1px solid #e5e7eb;background:#f3f4f6;padding:16px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
 .sb-title{font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;padding:0 4px 8px}
+
+.right-panel{width:420px;flex-shrink:0;border-left:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.rp-header{padding:16px;border-bottom:1px solid #e5e7eb;background:#f9fafb;font-weight:600;font-size:14px;color:#111827;display:flex;align-items:center;gap:8px;}
+.rp-body{flex:1;overflow-y:auto;padding:16px;background:#fafafa;}
+
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.metric-box{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px}
+.metric-box-title{font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600}
+.metric-box-val{font-size:16px;font-weight:700;color:#111827;margin-top:4px}
 .agent-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;transition:all .2s;min-height:76px}
 .agent-card.active{border-color:#6366f1;box-shadow:0 4px 12px rgba(99,102,241,.08)}
 .ac-head{display:flex;align-items:center;gap:10px}
@@ -1398,17 +1443,7 @@ body{background:#f9fafb;color:#111827;font-family:'Inter',system-ui,sans-serif;h
 .tt-btn{background:#f3f4f6;border:1px solid #e5e7eb;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#4b5563;cursor:pointer}
 .tt-btn:hover{background:#e5e7eb}
 
-/* Output Modal */
-.result-modal{position:absolute;inset:0;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);z-index:50;display:none;justify-content:center;align-items:center;padding:40px}
-.result-modal.active{display:flex;animation:fadeIn .3s}
-.rm-content{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.08);width:100%;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
-.rm-header{padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
-.rm-title{font-size:18px;font-weight:700;color:#111827;display:flex;align-items:center;gap:8px}
-.rm-close{border:none;background:transparent;font-size:24px;color:#9ca3af;cursor:pointer}
-.rm-close:hover{color:#111827}
-.rm-body{padding:24px;overflow-y:auto;background:#f9fafb}
-
-/* Markdown & Code styling for light theme */
+/* Output Panel Styles */
 .md-h1{font-size:15px;font-weight:700;color:#111827;margin:16px 0 8px}
 .md-h2{font-size:14px;font-weight:700;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:4px;margin:12px 0 6px}
 .md-h3{font-size:13px;font-weight:600;color:#4b5563;margin:8px 0 4px}
@@ -1454,7 +1489,8 @@ let state = {
   decomposition: null,
   workflowPhases: [], // Array of { phase: 'phaseId', label: 'Label', agents: [], output: '' }
   uploadedFile: null,
-  currentTaskText: ''
+  currentTaskText: '',
+  lastError: null
 };
 
 // Phase colors mapping
@@ -1566,7 +1602,12 @@ async function init() {
     
     ws.onopen = () => { state.connected = true; render(); };
     ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
+      let msg;
+      try {
+        msg = JSON.parse(e.data);
+      } catch (_err) {
+        return;
+      }
       switch (msg.type) {
         case 'connected':
           msg.data.agents.forEach(a => { state.agents[a.id] = a; });
@@ -1575,6 +1616,7 @@ async function init() {
           break;
         case 'swarm_start':
           state.running = true;
+          state.lastError = null;
           state.decomposition = null;
           state.metrics = null;
           state.finalOutput = null;
@@ -1618,6 +1660,12 @@ async function init() {
           break;
         case 'agent_token':
           state.agentActions[msg.data.agentId] = (state.agentActions[msg.data.agentId] + msg.data.token).slice(-120);
+          scheduleRender();
+          break;
+        case 'agent_error':
+          state.busyAgents.delete(msg.data.agentId);
+          state.lastError = (msg.data && msg.data.error) ? msg.data.error : 'Agent failed';
+          render();
           break;
         case 'agent_complete':
           state.busyAgents.delete(msg.data.agentId);
@@ -1664,8 +1712,8 @@ async function handleFileUpload(e) {
     alert("Not connected to server yet.");
     return;
   }
-  if(file.size > 2 * 1024 * 1024) {
-    alert("File too large (max 2MB)");
+  if(file.size > 50 * 1024) {
+    alert("File too large (max 50KB)");
     return;
   }
   
@@ -1680,7 +1728,8 @@ async function handleFileUpload(e) {
       state.uploadedFile = file.name;
       render();
     } else {
-      alert("Upload failed");
+      const payload = await res.json().catch(() => ({}));
+      alert("Upload failed: " + (payload.error || ('HTTP ' + res.status)));
     }
   } catch(err) {
     alert("Error reading file: " + err);
@@ -1689,8 +1738,14 @@ async function handleFileUpload(e) {
 
 function submit(taskStr) {
   if (!taskStr.trim() || !state.connected || state.running) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    state.lastError = 'Connection not ready. Please wait and retry.';
+    render();
+    return;
+  }
   state.currentTaskText = taskStr;
   state.running = true;
+  state.lastError = null;
   state.finalOutput = null;
   state.metrics = null;
   state.decomposition = null;
@@ -1788,10 +1843,10 @@ function render(){
     h += '<div class="top-task-bar">';
     h += '<div style="width:8px;height:8px;border-radius:50%;background:' + (state.running ? '#f59e0b' : '#10b981') + '"></div>';
     h += '<input class="tt-input" value="' + esc(state.currentTaskText || 'Swarm Task Running...') + '" readonly>';
-    if (state.finalOutput) {
-      h += '<button class="tt-btn" onclick="document.getElementById(\\'resultModal\\').classList.add(\\'active\\')">View Deliverable</button>';
-    }
     h += '</div>';
+    if (state.lastError) {
+      h += '<div style="margin:12px 24px 0;padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:8px;font-size:12px">' + esc(state.lastError) + '</div>';
+    }
     
     h += '<div class="workflow-view active">';
     
@@ -1829,20 +1884,30 @@ function render(){
   }
   
   h += '</div>'; // end workspace
-  h += '</div>'; // end main-view
   
-  // Result Modal
-  if (state.finalOutput) {
-    h += '<div class="result-modal ' + (state.running ? '' : 'active') + '" id="resultModal">';
-    h += '<div class="rm-content">';
-    h += '<div class="rm-header">';
-    h += '<div class="rm-title">✨ Final Deliverable</div>';
-    h += '<button class="rm-close" onclick="closeModal()">&times;</button>';
-    h += '</div>';
-    h += '<div class="rm-body">';
-    h += renderCode(state.finalOutput);
-    h += '</div></div></div>';
+  // Right Information Panel (Metrics & Final Output)
+  if (state.finalOutput || (!state.running && state.metrics)) {
+    h += '<div class="right-panel">';
+    h += '<div class="rp-header">✨ Final Deliverable</div>';
+    h += '<div class="rp-body">';
+    
+    if (!state.running && state.metrics) {
+      h += '<div class="metric-grid">';
+      h += '<div class="metric-box"><div class="metric-box-title">Duration</div><div class="metric-box-val">' + (state.metrics.duration/1000).toFixed(1) + 's</div></div>';
+      h += '<div class="metric-box"><div class="metric-box-title">Agent Calls</div><div class="metric-box-val">' + state.metrics.agentCalls + '</div></div>';
+      h += '<div class="metric-box"><div class="metric-box-title">Tokens</div><div class="metric-box-val">~' + state.metrics.tokensEstimate + '</div></div>';
+      h += '<div class="metric-box"><div class="metric-box-title">Artifacts</div><div class="metric-box-val">' + (state.metrics.pheromoneTrail && state.metrics.pheromoneTrail.total || 0) + '</div></div>';
+      h += '</div>';
+    }
+    
+    if (state.finalOutput) {
+      h += renderCode(state.finalOutput);
+    }
+    
+    h += '</div></div>';
   }
+  
+  h += '</div>'; // end main-view
   
   app.innerHTML = h;
   

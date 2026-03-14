@@ -5,8 +5,8 @@
  * Tests cost-tracker, retry, persistence, and validation modules.
  */
 
-import { CostTracker, MODEL_PRICING } from "../scripts/lib/cost-tracker.js";
-import { withRetry, sleep, defaultShouldRetry } from "../scripts/lib/retry.js";
+import { CostTracker } from "../scripts/lib/cost-tracker.js";
+import { withRetry, defaultShouldRetry } from "../scripts/lib/retry.js";
 import { validateTaskInput, validateSessionId } from "../scripts/lib/validate-input.js";
 import { TrustPersistence } from "../scripts/lib/persistence.js";
 import { createLogger } from "../scripts/lib/logger.js";
