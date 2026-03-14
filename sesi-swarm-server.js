@@ -1376,7 +1376,7 @@ body{background:#f9fafb;color:#111827;font-family:'Inter',system-ui,sans-serif;h
 .preset-desc{font-size:12px;color:#6b7280}
 
 /* Active Workflow View */
-.workflow-view{position:absolute;inset:0;background:#fafafa;padding:24px;overflow-x:auto;overflow-y:hidden;display:none;align-items:flex-start;gap:32px}
+.workflow-view{position:relative;flex:1;background:#fafafa;padding:24px;overflow-x:auto;overflow-y:hidden;display:none;align-items:flex-start;gap:32px}
 .workflow-view.active{display:flex}
 
 .wf-page{width:340px;height:calc(100vh - 160px);background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.02);display:flex;flex-direction:column;flex-shrink:0;animation:fadeIn .4s ease}
@@ -1453,7 +1453,8 @@ let state = {
   metrics: null,
   decomposition: null,
   workflowPhases: [], // Array of { phase: 'phaseId', label: 'Label', agents: [], output: '' }
-  uploadedFile: null
+  uploadedFile: null,
+  currentTaskText: ''
 };
 
 // Phase colors mapping
@@ -1688,6 +1689,7 @@ async function handleFileUpload(e) {
 
 function submit(taskStr) {
   if (!taskStr.trim() || !state.connected || state.running) return;
+  state.currentTaskText = taskStr;
   state.running = true;
   state.finalOutput = null;
   state.metrics = null;
@@ -1785,7 +1787,7 @@ function render(){
     // ---------------------------------------------------------
     h += '<div class="top-task-bar">';
     h += '<div style="width:8px;height:8px;border-radius:50%;background:' + (state.running ? '#f59e0b' : '#10b981') + '"></div>';
-    h += '<input class="tt-input" value="Current Task..." readonly>';
+    h += '<input class="tt-input" value="' + esc(state.currentTaskText || 'Swarm Task Running...') + '" readonly>';
     if (state.finalOutput) {
       h += '<button class="tt-btn" onclick="document.getElementById(\\'resultModal\\').classList.add(\\'active\\')">View Deliverable</button>';
     }
